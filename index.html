@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'" /> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stamp</title>
+    <link
+      rel="shortcut icon"
+      href="./static/img/icon/32x32.ico"
+      type="image/x-icon"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic:wght@400;700&family=Noto+Sans+JP:wght@100..900&display=swap"
+    />
+    <link rel="stylesheet" href="./static/css/bulma.min.css" />
+    <link rel="stylesheet" href="./static/css/style.css" />
+    <script
+      src="https://kit.fontawesome.com/a4ac748951.js"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body class="vh100">
+    <section class="hero is-small is-dark">
+      <div class="hero-body">
+        <p class="title">Stamp</p>
+        <p class="subtitle">PDFに印影画像を貼り付けます</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="columns is-mobile">
+          <div class="column is-5">
+            <p>PDFを選択（複数可）</p>
+            <div class="file is-boxed">
+              <label class="file-label">
+                <input
+                  class="file-input"
+                  type="file"
+                  name="pdfFiles"
+                  id="pdfInput"
+                  accept="application/pdf"
+                  multiple
+                />
+                <span class="file-cta" id="dropArea">
+                  <span class="file-icon">
+                    <i class="fa-solid fa-upload"></i>
+                  </span>
+                  <span class="file-label">選択またはドラッグ＆ドロップ</span>
+                </span>
+              </label>
+            </div>
+          </div>
+          <div class="column is-7" id="loadedFiles">
+            <ul id="fileList" class="file-list">
+              <!-- 選択されたPDFファイルのリストがここに表示される -->
+            </ul>
+          </div>
+        </div>
+
+        <div class="columns">
+          <div class="column">
+            <p>モード選択</p>
+            <div class="control">
+              <label class="radio">
+                <input
+                  type="radio"
+                  id="radioAll"
+                  name="mode"
+                  checked
+                  disabled
+                />
+                一括
+              </label>
+              <label class="radio">
+                <input type="radio" id="radioIndividual" name="mode" disabled />
+                個別
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <section id="sectionAll" class="hidden">
+          <p>書類の種別を選択</p>
+          <div class="columns">
+            <div class="column">
+              <div class="select">
+                <select id="selectDocType">
+                  <option value="" selected>--------</option>
+                  <option value="estimate">見積書</option>
+                  <option value="invoice">請求書</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <p>担当者の貼り付け位置を指定</p>
+          <div class="columns is-mobile">
+            <div class="column">
+              <input
+                type="number"
+                class="input is-small"
+                id="xPosManager"
+                placeholder="X座標"
+              />
+            </div>
+            <div class="column">
+              <input
+                type="number"
+                class="input is-small"
+                id="yPosManager"
+                placeholder="Y座標"
+              />
+            </div>
+            <div class="column">
+              <div class="select">
+                <select id="stampSelectManager">
+                  <!-- スタンプ画像のリストが動的に生成される -->
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <p>承認者の貼り付け位置を指定</p>
+          <div class="columns is-mobile">
+            <div class="column">
+              <input
+                type="number"
+                class="input is-small"
+                id="xPosApprover"
+                placeholder="X座標"
+              />
+            </div>
+            <div class="column">
+              <input
+                type="number"
+                class="input is-small"
+                id="yPosApprover"
+                placeholder="Y座標"
+              />
+            </div>
+            <div class="column">
+              <div class="select">
+                <select id="stampSelectApprover">
+                  <!-- スタンプ画像のリストが動的に生成される -->
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <p>角印の貼り付け位置を指定</p>
+          <div class="columns is-mobile">
+            <div class="column">
+              <input
+                type="number"
+                class="input is-small"
+                id="xPosSquare"
+                placeholder="X座標"
+              />
+            </div>
+            <div class="column">
+              <input
+                type="number"
+                class="input is-small"
+                id="yPosSquare"
+                placeholder="Y座標"
+              />
+            </div>
+            <div class="column">
+              <label class="checkbox">
+                <input type="checkbox" id="checkStampSquare" />
+                角印を追加する
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section id="sectionIndividual" class="hidden">
+          <!-- ファイル情報がここに表示される -->
+        </section>
+
+        <div class="columns">
+          <div class="column is-mobile">
+            <button
+              id="stampPdfBtn"
+              class="button is-small is-fullwidth is-rounded"
+              disabled
+            >
+              保存先フォルダを指定してPDFにスタンプを追加
+            </button>
+          </div>
+        </div>
+
+        <script src="app.js"></script>
+        <script src="renderer.js"></script>
+      </div>
+    </section>
+  </body>
+</html>

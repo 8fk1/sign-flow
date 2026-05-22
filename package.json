@@ -1,0 +1,42 @@
+{
+  "name": "stamp",
+  "productName": "stamp",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-packager . --icon=./static/img/32x32.ico --overwrite",
+    "b": "node_modules/.bin/electron-builder build",
+    "app:dir": "electron-builder --dir",
+    "app:dist": "electron-builder"
+  },
+  "build": {
+    "appId": "net.katsubemakto.blog.app.my",
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "keywords": [],
+  "author": "DESKTOP-RQTS4S9 <fujiwarayuuki@summitsystem.co.jp>",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "electron": "^38.2.0",
+    "electron-builder": "^26.0.12",
+    "electron-packager": "^17.1.2"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "yarn": "^1.22.22"
+  },
+  "repository": "https://github.com/8fk1/Stamp.git"
+}
