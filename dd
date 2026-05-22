@@ -1,0 +1,8 @@
+cd C:\Users\fujiwara\AppData\Local\electron-builder\Cache\winCodeSign
+& "C:\Program Files\7-Zip\7z.exe" x -bd 766123239.7z -o766123239
+
+
+Remove-Item "C:\Users\fujiwara\AppData\Local\electron-builder\Cache\winCodeSign\766123239\darwin\10.12\lib\libcrypto.dylib"
+Remove-Item "C:\Users\fujiwara\AppData\Local\electron-builder\Cache\winCodeSign\766123239\darwin\10.12\lib\libssl.dylib"
+New-Item -ItemType SymbolicLink -Path "C:\Users\fujiwara\AppData\Local\electron-builder\Cache\winCodeSign\766123239\darwin\10.12\lib\libcrypto.dylib" -Target ".\libcrypto.dylib"
+New-Item -ItemType SymbolicLink -Path "C:\Users\fujiwara\AppData\Local\electron-builder\Cache\winCodeSign\766123239\darwin\10.12\lib\libssl.dylib" -Target ".\libssl.dylib"

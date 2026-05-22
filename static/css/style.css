@@ -1,0 +1,53 @@
+* {
+  font-size: 11px;
+  font-family: "BIZ UDGothic", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  color: rgba(4, 30, 73, 0.7);
+  scrollbar-width: none;
+}
+.hero {
+  height: 60px;
+  -webkit-app-region: drag;
+  .title {
+    font-size: 1rem;
+  }
+  .subtitle {
+    font-size: 0.75rem;
+  }
+}
+#loadedFiles {
+  overflow: auto;
+  max-height: 100px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  scrollbar-width: thin;
+  background-color: #fff;
+}
+
+body {
+  background-color: #fafbff;
+  /* height: 100vh; */
+}
+
+#dropArea.is-dragover {
+  border: 1px solid #3273dc;
+  background-color: aliceblue;
+}
+
+.hidden {
+  display: none;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.align-center {
+  display: flex;
+  justify-content: center;
+}
+
+.vh100 {
+  height: 100vh;
+}
