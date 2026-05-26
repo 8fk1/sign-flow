@@ -30,6 +30,7 @@ const createWindow = () => {
     height: 900,
     title: 'SignFlow',
     // frame: false,
+    icon: path.join(__dirname, 'static/img/icon/icon.png'),
     show: false, // 起動プロセスが完了するまで WebView を表示しない
     autoHideMenuBar: true,
     backgroundColor: '#1e1e23', // ウィンドウの背景色をあらかじめレンダラープロセスと合わせておく
