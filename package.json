@@ -1,6 +1,6 @@
 {
-  "name": "stamp",
-  "productName": "stamp",
+  "name": "sign-flow",
+  "productName": "sign-flow",
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
@@ -39,5 +39,5 @@
     "pdfjs-dist": "^3.4.120",
     "yarn": "^1.22.22"
   },
-  "repository": "https://github.com/8fk1/Stamp.git"
+  "repository": "https://github.com/8fk1/sign-flow.git"
 }
