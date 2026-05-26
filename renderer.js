@@ -50,6 +50,7 @@ const masterDocTypeContainer = document.getElementById("masterDocTypeContainer")
 let loadedPdfFiles = [];
 let stampImages = [];
 let docTypes = [];
+let stampMeta = {}; // { "filename.png": { naturalWidth: 100, naturalHeight: 50 } }
 
 // ビジュアル個別押印の状態
 let currentVisualIndex = 0;
@@ -98,8 +99,58 @@ tabBtnMaster.addEventListener("click", () => {
   renderMasterView();
 });
 
+// 印影のサイズ・形状情報をメタデータから算出する
+function getStampDimensions(stampFile) {
+  if (stampFile === "square.png") {
+    return { previewWidth: 90, previewHeight: 90, borderRadius: "4px", pdfWidth: 80, pdfHeight: 80 };
+  }
+  const meta = stampMeta[stampFile];
+  const BASE_LONG = 90;
+  const BASE_PDF = 60;
+  if (!meta || !meta.naturalWidth || !meta.naturalHeight) {
+    return { previewWidth: 45, previewHeight: 45, borderRadius: "50%", pdfWidth: 30, pdfHeight: 30 };
+  }
+  const { naturalWidth, naturalHeight } = meta;
+  const ratio = naturalWidth / naturalHeight;
+  let previewWidth, previewHeight, pdfWidth, pdfHeight;
+  if (naturalWidth >= naturalHeight) {
+    previewWidth = BASE_LONG;
+    previewHeight = Math.max(20, Math.round(BASE_LONG / ratio));
+    pdfWidth = BASE_PDF;
+    pdfHeight = Math.max(10, Math.round(BASE_PDF / ratio));
+  } else {
+    previewHeight = BASE_LONG;
+    previewWidth = Math.max(20, Math.round(BASE_LONG * ratio));
+    pdfHeight = BASE_PDF;
+    pdfWidth = Math.max(10, Math.round(BASE_PDF * ratio));
+  }
+  // 縦横比が 0.8〜1.25 の範囲なら円形、それ以外は角丸長方形
+  const borderRadius = (ratio >= 0.8 && ratio <= 1.25) ? "50%" : "4px";
+  return { previewWidth, previewHeight, borderRadius, pdfWidth, pdfHeight };
+}
+
+// メタデータが未収集の印影画像の縦横比を非同期で取得して保存する
+function loadMissingStampMeta() {
+  const missing = stampImages.filter(img => img !== "square.png" && !stampMeta[img]);
+  if (missing.length === 0) return;
+  missing.forEach(imgName => {
+    const imgPath = path.join(stampFolder, imgName);
+    const tempImg = new Image();
+    tempImg.onload = () => {
+      stampMeta[imgName] = { naturalWidth: tempImg.naturalWidth, naturalHeight: tempImg.naturalHeight };
+      localStorage.setItem("stamp_meta", JSON.stringify(stampMeta));
+    };
+    tempImg.src = `file://${imgPath}?t=${Date.now()}`;
+  });
+}
+
 // --- マスタデータの初期化と読み込み ---
 function initMasterData() {
+  const storedMeta = localStorage.getItem("stamp_meta");
+  if (storedMeta) {
+    try { stampMeta = JSON.parse(storedMeta); } catch(e) { stampMeta = {}; }
+  }
+
   // LocalStorageから読み込み。なければデフォルトを生成
   const storedStamps = localStorage.getItem("stamp_images");
   if (storedStamps) {
@@ -167,15 +218,39 @@ function loadSelectOptions() {
 
 // --- マスタ管理画面のレンダリング ---
 function renderMasterView() {
+  loadMissingStampMeta(); // 未取得のメタデータを非同期で収集
+
   // 1. 印影画像一覧 (プレビューカード化)
   masterStampList.innerHTML = "";
   stampImages.forEach((img, idx) => {
     const card = document.createElement("div");
     card.className = "stamp-card";
     const isDefaultSquare = img === "square.png";
-    
+
+    // サムネイルラッパーのスタイルをアスペクト比に基づいて動的設定
+    let wrapperClass = "stamp-thumbnail-wrapper";
+    let wrapperStyle = "";
+    if (isDefaultSquare) {
+      wrapperClass += " square-wrapper";
+    } else {
+      const meta = stampMeta[img];
+      if (meta && meta.naturalWidth && meta.naturalHeight) {
+        const ratio = meta.naturalWidth / meta.naturalHeight;
+        const MAX_SIZE = 80;
+        if (ratio >= 0.8 && ratio <= 1.25) {
+          // 円形（デフォルトスタイルのまま）
+        } else if (ratio > 1.25) {
+          const h = Math.max(30, Math.round(MAX_SIZE / ratio));
+          wrapperStyle = `width: ${MAX_SIZE}px; height: ${h}px; border-radius: 4px;`;
+        } else {
+          const w = Math.max(30, Math.round(MAX_SIZE * ratio));
+          wrapperStyle = `width: ${w}px; height: ${MAX_SIZE}px; border-radius: 4px;`;
+        }
+      }
+    }
+
     card.innerHTML = `
-      <div class="stamp-thumbnail-wrapper ${isDefaultSquare ? 'square-wrapper' : ''}">
+      <div class="${wrapperClass}" style="${wrapperStyle}">
         <img src="file://${path.join(stampFolder, img)}?t=${Date.now()}" class="stamp-thumbnail" onerror="this.src='static/img/icon/32x32.ico'" />
       </div>
       <div class="stamp-card-name" title="${img}">${path.basename(img, path.extname(img))}</div>
@@ -500,8 +575,20 @@ uploadStampBtn.addEventListener("click", async () => {
       stampImages.push(destName);
       localStorage.setItem("stamp_images", JSON.stringify(stampImages));
     }
-    alert("印影画像を登録しました！");
-    renderMasterView();
+
+    // 画像の縦横比をメタデータとして保存してからレンダリング
+    const tempImg = new Image();
+    tempImg.onload = () => {
+      stampMeta[destName] = { naturalWidth: tempImg.naturalWidth, naturalHeight: tempImg.naturalHeight };
+      localStorage.setItem("stamp_meta", JSON.stringify(stampMeta));
+      alert("印影画像を登録しました！");
+      renderMasterView();
+    };
+    tempImg.onerror = () => {
+      alert("印影画像を登録しました！");
+      renderMasterView();
+    };
+    tempImg.src = `file://${destPath}?t=${Date.now()}`;
   } catch (err) {
     alert("エラーが発生しました: " + err.message);
   }
@@ -919,36 +1006,41 @@ async function renderVisualStep() {
     }));
   }
 
-  // 保存済みのスタンプがあれば再現
+  // 保存済みのスタンプがあれば再現（サイズも復元）
   savedSettings.stamps.forEach(saved => {
-    // 保存されたPDF座標から現在のプレビュー上のピクセル位置を計算して配置
-    const stampHeight = saved.stampFile === "square.png" ? 90 : 45;
+    // PDF pt → プレビュー px に逆変換してサイズを復元
+    const previewStampW = saved.width ? Math.round((saved.width / ptWidth) * currentPreviewWidth) : null;
+    const previewStampH = saved.height ? Math.round((saved.height / ptHeight) * currentPreviewHeight) : null;
+    const restoreH = previewStampH || getStampDimensions(saved.stampFile).previewHeight;
     const px = (saved.pdfX / ptWidth) * currentPreviewWidth;
-    const py = currentPreviewHeight - ((saved.pdfY / ptHeight) * currentPreviewHeight) - stampHeight;
-    createVisualStampElement(saved.stampFile, px, py);
+    const py = currentPreviewHeight - ((saved.pdfY / ptHeight) * currentPreviewHeight) - restoreH;
+    createVisualStampElement(saved.stampFile, px, py, previewStampW, previewStampH);
   });
 }
 
-// プレビュー上にスタンプ要素を生成する
-function createVisualStampElement(stampFile, startX = null, startY = null) {
+// プレビュー上にスタンプ要素を生成する（initialWidth/Height: 復元時のピクセルサイズ）
+function createVisualStampElement(stampFile, startX = null, startY = null, initialWidth = null, initialHeight = null) {
   const stampEl = document.createElement("div");
   stampEl.className = "draggable-stamp";
-  
-  const stampWidth = stampFile === "square.png" ? 90 : 45;
-  const stampHeight = stampFile === "square.png" ? 90 : 45;
+
+  const dims = getStampDimensions(stampFile);
+  const stampWidth = initialWidth || dims.previewWidth;
+  const stampHeight = initialHeight || dims.previewHeight;
+
+  stampEl.style.width = stampWidth + "px";
+  stampEl.style.height = stampHeight + "px";
+  stampEl.style.borderRadius = dims.borderRadius;
 
   if (stampFile === "square.png") {
     stampEl.classList.add("square-stamp");
-    stampEl.style.width = "90px";
-    stampEl.style.height = "90px";
   }
 
   // ファイルの拡張子抜き名をラベルに
   const label = path.basename(stampFile, path.extname(stampFile));
-  
+
   // テキスト表示用のスパン
   const labelSpan = document.createElement("span");
-  labelSpan.textContent = label.slice(0, 4); // 4文字まで表示
+  labelSpan.textContent = label.slice(0, 4);
   stampEl.appendChild(labelSpan);
 
   // 削除用「×」バッジを追加
@@ -956,12 +1048,7 @@ function createVisualStampElement(stampFile, startX = null, startY = null) {
   deleteBadge.className = "stamp-delete-badge";
   deleteBadge.innerHTML = '<i class="fa-solid fa-xmark"></i>';
   deleteBadge.title = "このスタンプを削除";
-  
-  // ドラッグの開始（mousedown）を伝播させない
-  deleteBadge.addEventListener("mousedown", (e) => {
-    e.stopPropagation();
-  });
-  
+  deleteBadge.addEventListener("mousedown", (e) => { e.stopPropagation(); });
   deleteBadge.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -971,6 +1058,50 @@ function createVisualStampElement(stampFile, startX = null, startY = null) {
     }
   });
   stampEl.appendChild(deleteBadge);
+
+  // リサイズハンドル（右下コーナー）
+  const resizeHandle = document.createElement("div");
+  resizeHandle.className = "stamp-resize-handle";
+  resizeHandle.title = "ドラッグしてサイズを変更";
+  resizeHandle.addEventListener("mousedown", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const startMouseX = e.clientX;
+    const startW = stampEl.offsetWidth;
+    const startH = stampEl.offsetHeight;
+    const aspectRatio = startW / startH;
+    stampEl.style.zIndex = 1000;
+
+    const onResizeMove = (e) => {
+      const dx = e.clientX - startMouseX;
+      let newW = Math.max(24, startW + dx);
+      let newH = Math.round(newW / aspectRatio);
+
+      // プレビューエリアからはみ出さないよう制限
+      const areaRect = visualPreviewArea.getBoundingClientRect();
+      const areaW = areaRect.width || PREVIEW_WIDTH_PX;
+      const areaH = parseFloat(visualPreviewArea.style.height) || areaRect.height || PREVIEW_HEIGHT_PX;
+      const left = parseFloat(stampEl.style.left) || 0;
+      const top = parseFloat(stampEl.style.top) || 0;
+      newW = Math.min(newW, areaW - left);
+      newH = Math.min(newH, areaH - top);
+
+      stampEl.style.width = newW + "px";
+      stampEl.style.height = newH + "px";
+    };
+
+    const onResizeUp = () => {
+      stampEl.style.zIndex = "";
+      document.removeEventListener("mousemove", onResizeMove);
+      document.removeEventListener("mouseup", onResizeUp);
+      saveCurrentVisualStamps();
+    };
+
+    document.addEventListener("mousemove", onResizeMove);
+    document.addEventListener("mouseup", onResizeUp);
+  });
+  stampEl.appendChild(resizeHandle);
 
   const _initRect = visualPreviewArea.getBoundingClientRect();
   const currentPreviewWidth = (_initRect.width || PREVIEW_WIDTH_PX);
@@ -1004,23 +1135,21 @@ function createVisualStampElement(stampFile, startX = null, startY = null) {
     let x = e.clientX - areaRect.left - offsetX;
     let y = e.clientY - areaRect.top - offsetY;
 
-    // プレビュー境界制限
-    const stampWidth = stampEl.offsetWidth;
-    const stampHeight = stampEl.offsetHeight;
+    const curW = stampEl.offsetWidth;
+    const curH = stampEl.offsetHeight;
     const _dragRect = visualPreviewArea.getBoundingClientRect();
     const currentPreviewWidth = (_dragRect.width || PREVIEW_WIDTH_PX);
     const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _dragRect.height || PREVIEW_HEIGHT_PX);
 
     if (x < 0) x = 0;
-    if (x > currentPreviewWidth - stampWidth) x = currentPreviewWidth - stampWidth;
+    if (x > currentPreviewWidth - curW) x = currentPreviewWidth - curW;
     if (y < 0) y = 0;
-    if (y > currentPreviewHeight - stampHeight) y = currentPreviewHeight - stampHeight;
+    if (y > currentPreviewHeight - curH) y = currentPreviewHeight - curH;
 
     stampEl.style.left = x + "px";
     stampEl.style.top = y + "px";
 
-    // リアルタイム座標表示
-    updateVisualCoordinates(x, y, stampWidth, stampHeight);
+    updateVisualCoordinates(x, y, curW, curH);
   });
 
   document.addEventListener("mouseup", () => {
@@ -1031,7 +1160,6 @@ function createVisualStampElement(stampFile, startX = null, startY = null) {
     }
   });
 
-  // 右クリックでも同様に削除できるように残す
   stampEl.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     if (confirm("この印影を削除しますか？")) {
@@ -1080,13 +1208,15 @@ function saveCurrentVisualStamps() {
   stampEls.forEach(el => {
     const px = parseFloat(el.style.left) || 0;
     const py = parseFloat(el.style.top) || 0;
-    const width = el.offsetWidth;
-    const height = el.offsetHeight;
+    const elW = el.offsetWidth;
+    const elH = el.offsetHeight;
     const stampFile = el.dataset.stampFile;
 
-    // PDF座標計算
+    // PDF座標・サイズをプレビュー上の実寸から比例計算
     const pdfX = Math.round((px / currentPreviewWidth) * ptWidth);
-    const pdfY = Math.round(((currentPreviewHeight - py - height) / currentPreviewHeight) * ptHeight);
+    const pdfY = Math.round(((currentPreviewHeight - py - elH) / currentPreviewHeight) * ptHeight);
+    const pdfStampW = Math.round((elW / currentPreviewWidth) * ptWidth);
+    const pdfStampH = Math.round((elH / currentPreviewHeight) * ptHeight);
 
     savedList.push({
       stampFile,
@@ -1094,8 +1224,8 @@ function saveCurrentVisualStamps() {
       py,
       pdfX,
       pdfY,
-      width: stampFile === "square.png" ? 80 : 30, // PDFに実際に書き込むサイズ
-      height: stampFile === "square.png" ? 80 : 30
+      width: pdfStampW,
+      height: pdfStampH
     });
   });
 
@@ -1192,13 +1322,10 @@ async function processPdfOutput(mode = "normal") {
       processList.push({
         file: item.file,
         customName: item.customName,
-        stamps: doc.rules.map(r => ({
-          stampFile: r.stamp,
-          x: r.x,
-          y: r.y,
-          width: r.stamp === "square.png" ? 80 : 30,
-          height: r.stamp === "square.png" ? 80 : 30
-        }))
+        stamps: doc.rules.map(r => {
+          const dims = getStampDimensions(r.stamp);
+          return { stampFile: r.stamp, x: r.x, y: r.y, width: dims.pdfWidth, height: dims.pdfHeight };
+        })
       });
     }
   } else {
@@ -1215,13 +1342,10 @@ async function processPdfOutput(mode = "normal") {
       processList.push({
         file: item.file,
         customName: item.customName,
-        stamps: doc.rules.map(r => ({
-          stampFile: r.stamp,
-          x: r.x,
-          y: r.y,
-          width: r.stamp === "square.png" ? 80 : 30,
-          height: r.stamp === "square.png" ? 80 : 30
-        }))
+        stamps: doc.rules.map(r => {
+          const dims = getStampDimensions(r.stamp);
+          return { stampFile: r.stamp, x: r.x, y: r.y, width: dims.pdfWidth, height: dims.pdfHeight };
+        })
       });
     });
   }
