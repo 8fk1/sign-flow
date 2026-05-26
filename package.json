@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^3.4.120",
     "yarn": "^1.22.22"
   },
   "repository": "https://github.com/8fk1/Stamp.git"

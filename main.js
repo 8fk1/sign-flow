@@ -6,18 +6,29 @@ const path = require('path');
 app.commandLine.appendSwitch('disable-gpu-sandbox')
 
 ipcMain.handle('show-open-dialog', async (event, options) => {
-    const result = await dialog.showOpenDialog({
-        title: '保存先フォルダを選択',
-        properties: ['openDirectory'], // フォルダのみ選択
-    });
-    return result;
+  const result = await dialog.showOpenDialog({
+    title: '保存先フォルダを選択',
+    properties: ['openDirectory'], // フォルダのみ選択
+  });
+  return result;
+});
+
+ipcMain.handle('show-image-dialog', async (event) => {
+  const result = await dialog.showOpenDialog({
+    title: '印影画像を選択',
+    filters: [
+      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] }
+    ],
+    properties: ['openFile'],
+  });
+  return result;
 });
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
-    width: 500,
-    height: 600,
-    title: 'マイアプリ',
+    width: 1250,
+    height: 900,
+    title: 'Stamp',
     // frame: false,
     show: false, // 起動プロセスが完了するまで WebView を表示しない
     autoHideMenuBar: true,
