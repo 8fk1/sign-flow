@@ -2,6 +2,26 @@ const { app, BrowserWindow, ipcMain, dialog, nativeTheme } = require('electron')
 const fs = require('fs');
 const path = require('path');
 
+// ユーザーデータ内の印影フォルダを初期化する
+function initStampFolder() {
+  const userStampDir = path.join(app.getPath('userData'), 'stamp');
+  if (!fs.existsSync(userStampDir)) {
+    fs.mkdirSync(userStampDir, { recursive: true });
+    // デフォルトのスタンプ画像をコピー
+    const defaultStampSrc = path.join(__dirname, 'static/img/stamp');
+    if (fs.existsSync(defaultStampSrc)) {
+      const files = fs.readdirSync(defaultStampSrc);
+      files.forEach(file => {
+        fs.copyFileSync(
+          path.join(defaultStampSrc, file),
+          path.join(userStampDir, file)
+        );
+      });
+    }
+  }
+  return userStampDir;
+}
+
 // GPUのサンドボックスを無効化
 app.commandLine.appendSwitch('disable-gpu-sandbox')
 
@@ -11,6 +31,11 @@ ipcMain.handle('show-open-dialog', async (event, options) => {
     properties: ['openDirectory'], // フォルダのみ選択
   });
   return result;
+});
+
+// ユーザーデータの印影フォルダパスを返す
+ipcMain.handle('get-stamp-folder', async () => {
+  return path.join(app.getPath('userData'), 'stamp');
 });
 
 ipcMain.handle('show-image-dialog', async (event) => {
@@ -50,6 +75,7 @@ const createWindow = () => {
 };
 
 app.once('ready', () => {
+  initStampFolder(); // 印影フォルダの初期化
 
   ipcMain.handle('open-dialog', async (_e, _arg) => {
     return dialog

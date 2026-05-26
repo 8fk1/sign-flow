@@ -32,7 +32,8 @@
   "devDependencies": {
     "electron": "^38.2.0",
     "electron-builder": "^26.0.12",
-    "electron-packager": "^17.1.2"
+    "electron-packager": "^17.1.2",
+    "playwright-core": "^1.60.0"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",

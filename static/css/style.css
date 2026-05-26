@@ -33,15 +33,18 @@ body {
   background: transparent !important;
   margin-bottom: 24px;
 }
+
 .hero-body {
   padding: 0 !important;
 }
+
 .hero .title {
   font-size: 1.75rem !important;
   font-weight: 700;
   color: var(--text-primary) !important;
   margin-bottom: 4px !important;
 }
+
 .hero .subtitle {
   font-size: 0.875rem !important;
   color: var(--text-secondary) !important;
@@ -55,6 +58,7 @@ body {
   border-bottom: 1px solid var(--panel-border);
   padding-bottom: 8px;
 }
+
 .tab-btn {
   background: transparent;
   border: none;
@@ -66,10 +70,12 @@ body {
   border-radius: 6px;
   transition: all var(--transition-speed);
 }
+
 .tab-btn:hover {
   background: #f1f5f9;
   color: var(--text-primary);
 }
+
 .tab-btn.is-active {
   background: var(--accent-color);
   color: #ffffff;
@@ -91,6 +97,7 @@ body {
   flex-direction: column;
   gap: 20px;
 }
+
 #dropArea {
   position: relative;
   overflow: hidden;
@@ -106,25 +113,30 @@ body {
   cursor: pointer;
   transition: all var(--transition-speed);
 }
+
 #dropArea:hover {
   border-color: var(--accent-color);
   background: #eff6ff;
 }
+
 #dropArea.is-dragover {
   border-color: var(--accent-color);
   background: #dbeafe;
 }
+
 .file-icon {
   font-size: 2.25rem;
   margin-bottom: 12px;
   color: var(--text-secondary);
 }
+
 .drop-title {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 4px;
 }
+
 .drop-subtitle {
   font-size: 0.8rem;
   color: var(--text-secondary);
@@ -134,6 +146,7 @@ body {
 .file-list-wrapper {
   margin-top: 8px;
 }
+
 .file-count-badge {
   background: #e2e8f0;
   color: var(--text-secondary);
@@ -142,6 +155,7 @@ body {
   padding: 2px 8px;
   border-radius: 9999px;
 }
+
 .file-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -150,6 +164,7 @@ body {
   overflow-y: auto;
   padding: 4px;
 }
+
 .file-card {
   display: flex;
   align-items: center;
@@ -158,27 +173,32 @@ body {
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   padding: 10px 12px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
   transition: transform var(--transition-speed), border-color var(--transition-speed);
 }
+
 .file-card:hover {
   border-color: var(--accent-color);
 }
+
 .file-card-info {
   display: flex;
   align-items: center;
   gap: 10px;
   overflow: hidden;
 }
+
 .file-card-info i {
   font-size: 1.5rem;
   color: #ef4444;
 }
+
 .file-card-details {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
+
 .file-card-name {
   font-size: 0.8rem;
   font-weight: 600;
@@ -187,6 +207,7 @@ body {
   text-overflow: ellipsis;
   max-width: 180px;
 }
+
 .file-card-size {
   font-size: 0.7rem;
   color: var(--text-secondary);
@@ -202,6 +223,7 @@ body {
   border-radius: 4px;
   transition: all var(--transition-speed);
 }
+
 .delete-btn:hover {
   color: var(--danger-color);
   background: #fee2e2;
@@ -216,6 +238,7 @@ body {
   margin-bottom: 16px;
   width: fit-content;
 }
+
 .mode-switch label.radio {
   padding: 8px 18px;
   border-radius: 4px;
@@ -224,13 +247,16 @@ body {
   font-size: 0.85rem;
   transition: all var(--transition-speed);
 }
+
 .mode-switch label.radio input {
   display: none;
 }
+
 .mode-switch label.radio:has(input:checked) {
   background: #ffffff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
+
 .mode-switch label.radio:has(input:disabled) {
   opacity: 0.5;
   cursor: not-allowed;
@@ -243,7 +269,9 @@ p.label-title {
   color: var(--text-secondary);
   margin-bottom: 8px;
 }
-.input, .select select {
+
+.input,
+.select select {
   background: #ffffff !important;
   border: 1px solid #cbd5e1 !important;
   color: var(--text-primary) !important;
@@ -251,13 +279,17 @@ p.label-title {
   font-size: 0.875rem !important;
   height: 2.5em !important;
 }
-.input:focus, .select select:focus {
+
+.input:focus,
+.select select:focus {
   border-color: var(--accent-color) !important;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1) !important;
 }
+
 .select {
   width: 100%;
 }
+
 .select select {
   width: 100%;
 }
@@ -270,6 +302,7 @@ p.label-title {
   padding: 16px;
   margin-bottom: 12px;
 }
+
 .setting-row-title {
   font-size: 0.85rem;
   font-weight: 600;
@@ -292,40 +325,92 @@ p.label-title {
   cursor: pointer;
   transition: background var(--transition-speed);
 }
+
 .btn-submit:hover:not(:disabled) {
   background: var(--accent-hover);
 }
+
 .btn-submit:disabled {
   background: #e2e8f0;
   color: #94a3b8;
   cursor: not-allowed;
 }
 
-/* 個別連続押印画面用ビジュアルプレビュー (大型化) */
+/* 個別連続押印画面用ビジュアルプレビュー */
 .preview-container {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 16px;
+  gap: 10px;
   margin-top: 10px;
 }
+
+.visual-progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.visual-rename-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+/* プレビュー + サイドバーの横並びレイアウト */
+.visual-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
 .preview-canvas-wrapper {
   position: relative;
-  width: 480px;  /* 基準幅を大型化 (320px -> 480px) */
-  height: 678px; /* 基準高さも大型化 (452px -> 678px) */
+  flex: 1;
+  min-width: 0;
+  max-width: 1400px;
   background: #ffffff;
   border: 1px solid #cbd5e1;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   border-radius: 4px;
   overflow: hidden;
   user-select: none;
+}
+
+/* 右サイドバー */
+.visual-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 16px;
+  align-self: flex-start;
+}
+
+.visual-stamp-panel {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+}
+
+.visual-nav-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* ドラッグ可能なスタンプ要素 */
 .draggable-stamp {
   position: absolute;
   z-index: 10;
-  width: 45px; /* 表示サイズもプレビュー拡大に合わせて少し調整 (30px -> 45px) */
+  width: 45px;
+  /* 表示サイズもプレビュー拡大に合わせて少し調整 (30px -> 45px) */
   height: 45px;
   border: 2px dashed var(--accent-color);
   background: rgba(37, 99, 235, 0.15);
@@ -338,12 +423,14 @@ p.label-title {
   font-weight: bold;
   color: var(--accent-color);
 }
+
 .draggable-stamp.square-stamp {
   border-radius: 4px;
   border-color: #eab308;
   background: rgba(234, 179, 8, 0.15);
   color: #eab308;
-  width: 90px; /* 角印表示も拡大 (60px -> 90px) */
+  width: 90px;
+  /* 角印表示も拡大 (60px -> 90px) */
   height: 90px;
 }
 
@@ -366,12 +453,14 @@ p.label-title {
   justify-content: center;
   font-weight: 700;
   z-index: 100;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   transition: background var(--transition-speed);
 }
+
 .stamp-delete-badge:hover {
   background: var(--danger-hover);
 }
+
 .stamp-delete-badge * {
   color: #ffffff !important;
 }
@@ -385,6 +474,7 @@ p.label-title {
   margin-bottom: 12px;
   margin-top: 16px;
 }
+
 .list-group-item {
   display: flex;
   justify-content: space-between;
@@ -396,6 +486,7 @@ p.label-title {
   margin-bottom: 6px;
   font-size: 0.875rem;
 }
+
 .pair-row {
   display: flex;
   gap: 8px;
@@ -406,13 +497,17 @@ p.label-title {
   border-radius: 6px;
   border: 1px solid #e2e8f0;
 }
-.pair-row > div {
-}
-.pair-row .input, .pair-row .select, .pair-row .select select {
+
+.pair-row>div {}
+
+.pair-row .input,
+.pair-row .select,
+.pair-row .select select {
   height: 2.25em !important;
   font-size: 0.8rem !important;
   width: 100% !important;
 }
+
 .pair-row .delete-btn {
   padding: 4px;
 }
@@ -424,6 +519,7 @@ p.label-title {
   gap: 16px;
   margin-top: 12px;
 }
+
 .stamp-card {
   background: #ffffff;
   border: 1px solid var(--panel-border);
@@ -433,12 +529,14 @@ p.label-title {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
   transition: border-color var(--transition-speed);
 }
+
 .stamp-card:hover {
   border-color: var(--accent-color);
 }
+
 .stamp-thumbnail-wrapper {
   width: 64px;
   height: 64px;
@@ -451,14 +549,17 @@ p.label-title {
   padding: 4px;
   overflow: hidden;
 }
+
 .stamp-thumbnail-wrapper.square-wrapper {
   border-radius: 6px;
 }
+
 .stamp-thumbnail {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
 }
+
 .stamp-card-name {
   font-size: 0.75rem;
   font-weight: 600;
@@ -469,12 +570,14 @@ p.label-title {
   text-align: center;
   color: var(--text-primary);
 }
+
 .stamp-card-actions {
   display: flex;
   flex-direction: column;
   gap: 6px;
   width: 100%;
 }
+
 .stamp-card-btn {
   width: 100%;
   font-size: 0.75rem;
@@ -491,14 +594,17 @@ p.label-title {
   justify-content: center;
   gap: 4px;
 }
+
 .stamp-card-btn:hover {
   background: #f1f5f9;
   border-color: #94a3b8;
 }
+
 .stamp-card-btn.stamp-delete-btn {
   color: var(--danger-color);
   border-color: #fee2e2;
 }
+
 .stamp-card-btn.stamp-delete-btn:hover {
   background: #fee2e2;
   border-color: #fca5a5;
@@ -529,6 +635,7 @@ p.label-title {
   position: relative;
   cursor: pointer;
 }
+
 [data-tooltip]::before {
   content: attr(data-tooltip);
   position: absolute;
@@ -545,10 +652,11 @@ p.label-title {
   visibility: hidden;
   pointer-events: none;
   transition: all var(--transition-speed);
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   z-index: 1000;
   font-weight: 500;
 }
+
 [data-tooltip]:hover::before {
   opacity: 1;
   visibility: visible;
@@ -560,22 +668,27 @@ p.label-title {
   background-color: rgba(15, 23, 42, 0.3) !important;
   backdrop-filter: blur(4px);
 }
+
 .modal-card {
   border-radius: 12px !important;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
   border: 1px solid var(--panel-border);
   overflow: hidden;
 }
+
 .modal-card-head {
   background-color: #ffffff !important;
   border-bottom: 1px solid var(--panel-border) !important;
 }
+
 .modal-card-title {
   color: var(--text-primary) !important;
 }
+
 .modal-card-body {
   background-color: var(--bg-color) !important;
 }
+
 .modal-card-foot {
   background-color: #ffffff !important;
   border-top: 1px solid var(--panel-border) !important;
@@ -597,14 +710,17 @@ p.label-title {
   cursor: pointer;
   transition: all var(--transition-speed);
 }
+
 .drop-zone-small:hover {
   border-color: var(--accent-color);
   background: #eff6ff;
 }
+
 .drop-zone-small.is-dragover {
   border-color: var(--accent-color);
   background: #dbeafe;
 }
+
 .drop-zone-small .file-input {
   position: absolute;
   top: 0;
@@ -627,6 +743,7 @@ p.label-title {
   gap: 12px;
   pointer-events: none;
 }
+
 .toast {
   min-width: 280px;
   max-width: 380px;
@@ -646,28 +763,36 @@ p.label-title {
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s;
   opacity: 0;
 }
+
 .toast.is-show {
   transform: translateX(0);
   opacity: 1;
 }
+
 .toast-info {
   border-left-color: var(--accent-color);
 }
+
 .toast-success {
   border-left-color: #10b981;
 }
+
 .toast-error {
   border-left-color: var(--danger-color);
 }
+
 .toast i {
   font-size: 1.1rem;
 }
+
 .toast-success i {
   color: #10b981;
 }
+
 .toast-info i {
   color: var(--accent-color);
 }
+
 .toast-error i {
   color: var(--danger-color);
 }
