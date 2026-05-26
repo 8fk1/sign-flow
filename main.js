@@ -28,7 +28,7 @@ const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 1250,
     height: 900,
-    title: 'Stamp',
+    title: 'SignFlow',
     // frame: false,
     show: false, // 起動プロセスが完了するまで WebView を表示しない
     autoHideMenuBar: true,
