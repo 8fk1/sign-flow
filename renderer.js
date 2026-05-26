@@ -8,7 +8,9 @@ const pdfjsLib = require("pdfjs-dist/build/pdf.js");
 pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve("pdfjs-dist/build/pdf.worker.js");
 
 const stampDir = "static/img/stamp";
-const stampFolder = path.join(__dirname, stampDir);
+// パッケージ化後も書き込めるよう、stampFolderはメインプロセスから取得する
+let stampFolder = path.join(__dirname, stampDir); // 開発時のフォールバック
+
 
 // DOM要素の取得
 const tabBtnStamp = document.getElementById("tabBtnStamp");
@@ -30,6 +32,7 @@ const stampPdfBtn = document.getElementById("stampPdfBtn");
 
 // ビジュアル押印用DOM
 const visualProgress = document.getElementById("visualProgress");
+const visualFileNameInput = document.getElementById("visualFileNameInput");
 const visualPreviewArea = document.getElementById("visualPreviewArea");
 const visualStampSelect = document.getElementById("visualStampSelect");
 const addVisualStampBtn = document.getElementById("addVisualStampBtn");
@@ -54,12 +57,23 @@ let currentVisualIndex = 0;
 let visualStampsSettings = []; 
 let lastVisualStamps = []; // 直前に配置決定したスタンプ情報のキャッシュ
 let lastPdfOrientation = null; // 直前のPDFの向き（'portrait' または 'landscape'）
+let lastPdfPtWidth = 0;  // 直前のPDFのpt幅（相対位置変換に使用）
+let lastPdfPtHeight = 0; // 直前のPDFのpt高さ（相対位置変換に使用）
 
 // A4基準のPDFサイズ (pt)
 const A4_WIDTH_PT = 595.27;
 const A4_HEIGHT_PT = 841.89;
-const PREVIEW_WIDTH_PX = 480;  // プレビュー表示サイズを大型化
-const PREVIEW_HEIGHT_PX = 678; // A4アスペクト比 (480 * 1.414 ≒ 678)
+// プレビューサイズは固定値ではなく要素の実幅から動的に計算する
+// PREVIEW_WIDTH_PX / PREVIEW_HEIGHT_PX は後方互換で残す（フォールバック用）
+const PREVIEW_WIDTH_PX = 480;
+const PREVIEW_HEIGHT_PX = 678;
+
+// 現在のプレビュー表示幅を取得する（要素が描画されていれば実幅を使用）
+function getPreviewWidth() {
+  const el = document.getElementById("visualPreviewArea");
+  if (el && el.offsetWidth > 0) return el.offsetWidth;
+  return PREVIEW_WIDTH_PX;
+}
 
 // 座標自動測定用の状態
 let activeMeasureDocIdx = null;
@@ -162,10 +176,14 @@ function renderMasterView() {
     
     card.innerHTML = `
       <div class="stamp-thumbnail-wrapper ${isDefaultSquare ? 'square-wrapper' : ''}">
-        <img src="static/img/stamp/${img}?t=${Date.now()}" class="stamp-thumbnail" onerror="this.src='static/img/icon/32x32.ico'" />
+        <img src="file://${path.join(stampFolder, img)}?t=${Date.now()}" class="stamp-thumbnail" onerror="this.src='static/img/icon/32x32.ico'" />
       </div>
-      <div class="stamp-card-name" title="${img}">${img}</div>
+      <div class="stamp-card-name" title="${img}">${path.basename(img, path.extname(img))}</div>
       <div class="stamp-card-actions">
+        ${isDefaultSquare ? '' : `
+        <button class="stamp-card-btn rename-stamp-btn" data-index="${idx}">
+          <i class="fa-solid fa-pen"></i> リネーム
+        </button>`}
         <button class="stamp-card-btn replace-btn" data-index="${idx}">
           <i class="fa-solid fa-arrows-rotate"></i> 変更
         </button>
@@ -259,6 +277,100 @@ function renderMasterView() {
 }
 
 function registerMasterEvents() {
+  // リネームボタンのイベント（インライン入力方式）
+  document.querySelectorAll(".stamp-card .rename-stamp-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.getAttribute("data-index"));
+      const oldName = stampImages[idx];
+      const ext = path.extname(oldName);
+      const baseName = path.basename(oldName, ext);
+
+      // カード内のファイル名表示要素をインライン入力に切り替え
+      const card = btn.closest(".stamp-card");
+      const nameEl = card.querySelector(".stamp-card-name");
+      if (nameEl.querySelector("input")) return; // 既に編集中なら無視
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = baseName;
+      input.className = "input";
+      input.style.cssText = "font-size:0.72rem; padding:2px 4px; height:1.8em; width:100%; text-align:center;";
+      // overflow:hidden / white-space:nowrap を解除してインプットが見えるようにする
+      nameEl.style.overflow = "visible";
+      nameEl.style.whiteSpace = "normal";
+      nameEl.style.textOverflow = "clip";
+      nameEl.innerHTML = "";
+      nameEl.appendChild(input);
+      input.focus();
+      input.select();
+
+      let committed = false; // blur と keydown Enter の二重発火を防ぐ
+      const commit = () => {
+        if (committed) return;
+        committed = true;
+
+        let newBase = input.value.trim();
+        if (!newBase || (newBase + ext) === oldName || newBase === baseName) {
+          renderMasterView();
+          return;
+        }
+
+        // 拡張子が入力されていなければ元の拡張子を付与
+        let newName = path.extname(newBase) ? newBase : newBase + ext;
+
+        if (newName === oldName) {
+          renderMasterView();
+          return;
+        }
+
+        // 同名ファイルが既に存在するかチェック
+        if (stampImages.includes(newName)) {
+          showToast(`「${path.basename(newName, path.extname(newName))}」は既に登録されています。`, "error");
+          renderMasterView();
+          return;
+        }
+
+        const oldPath = path.join(stampFolder, oldName);
+        const newPath = path.join(stampFolder, newName);
+
+        try {
+          fs.renameSync(oldPath, newPath);
+        } catch (err) {
+          showToast("ファイルのリネームに失敗しました: " + err.message, "error");
+          renderMasterView();
+          return;
+        }
+
+        // stampImages の更新
+        stampImages[idx] = newName;
+        localStorage.setItem("stamp_images", JSON.stringify(stampImages));
+
+        // docTypes 内で参照している印影名を一括更新
+        let docTypesChanged = false;
+        docTypes.forEach(doc => {
+          doc.rules.forEach(rule => {
+            if (rule.stamp === oldName) {
+              rule.stamp = newName;
+              docTypesChanged = true;
+            }
+          });
+        });
+        if (docTypesChanged) {
+          localStorage.setItem("stamp_doc_types", JSON.stringify(docTypes));
+        }
+
+        showToast(`「${baseName}」→「${path.basename(newName, path.extname(newName))}」にリネームしました。`, "success");
+        renderMasterView();
+      };
+
+      input.addEventListener("blur", commit);
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); commit(); }
+        if (e.key === "Escape") { renderMasterView(); }
+      });
+    });
+  });
+
   // 変更（画像置換）ボタンのイベント
   document.querySelectorAll(".stamp-card .replace-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -436,11 +548,12 @@ function displayFiles() {
   fileListWrapper.classList.remove("hidden");
   fileCountBadge.textContent = loadedPdfFiles.length + " 件";
 
-  loadedPdfFiles.forEach((file, index) => {
+  loadedPdfFiles.forEach((item, index) => {
     const card = document.createElement("div");
     card.className = "file-card";
-    
-    let displayFileName = file.name;
+    card.dataset.index = index;
+
+    let displayFileName = item.customName;
     if (displayFileName.length > 26) {
       displayFileName = displayFileName.slice(0, 18) + "..." + displayFileName.slice(-6);
     }
@@ -449,15 +562,55 @@ function displayFiles() {
       <div class="file-card-info">
         <i class="fa-regular fa-file-pdf"></i>
         <div class="file-card-details">
-          <span class="file-card-name" title="${file.name}">${displayFileName}</span>
-          <span class="file-card-size">${(file.size / 1024).toFixed(1)} KB</span>
+          <span class="file-card-name" title="${item.customName}">${displayFileName}</span>
+          <span class="file-card-size">${(item.file.size / 1024).toFixed(1)} KB</span>
         </div>
       </div>
-      <button class="delete-btn" data-index="${index}" title="削除">
-        <i class="fa-solid fa-trash-can"></i>
-      </button>
+      <div style="display:flex; gap:4px; align-items:center;">
+        <button class="rename-btn" data-index="${index}" title="ファイル名を変更" style="background:none; border:1px solid #64748b; border-radius:4px; padding:3px 7px; cursor:pointer; color:#94a3b8; font-size:0.75rem;">
+          <i class="fa-solid fa-pen"></i>
+        </button>
+        <button class="delete-btn" data-index="${index}" title="削除">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </div>
     `;
     fileGrid.appendChild(card);
+  });
+
+  // リネームボタンのイベント
+  fileGrid.querySelectorAll(".rename-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.getAttribute("data-index"));
+      const card = fileGrid.querySelector(`.file-card[data-index="${idx}"]`);
+      const nameSpan = card.querySelector(".file-card-name");
+      const currentName = loadedPdfFiles[idx].customName;
+
+      // インライン編集に切り替え
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = currentName;
+      input.className = "input";
+      input.style.cssText = "font-size:0.78rem; padding:2px 6px; height:1.8em; width:160px;";
+      nameSpan.replaceWith(input);
+      input.focus();
+      input.select();
+
+      const commit = () => {
+        let newName = input.value.trim();
+        if (!newName) newName = currentName;
+        // .pdf 拡張子がなければ付ける
+        if (!newName.toLowerCase().endsWith(".pdf")) newName += ".pdf";
+        loadedPdfFiles[idx].customName = newName;
+        displayFiles(); // 再レンダリング
+      };
+
+      input.addEventListener("blur", commit);
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); commit(); }
+        if (e.key === "Escape") { input.value = currentName; commit(); }
+      });
+    });
   });
 
   // イベントリスナーはDOM生成時に一括で委譲バインドするためここでは定義しません
@@ -474,9 +627,9 @@ function addFiles(files) {
   }
 
   files.forEach(file => {
-    // Web環境やElectronでのpath属性の差異に対応するため、nameとsizeで重複を判定
-    if (!loadedPdfFiles.some(f => f.name === file.name && f.size === file.size)) {
-      loadedPdfFiles.push(file);
+    // 重複判定は元の File オブジェクトの name/size で行う
+    if (!loadedPdfFiles.some(item => item.file.name === file.name && item.file.size === file.size)) {
+      loadedPdfFiles.push({ file, customName: file.name });
     }
   });
 
@@ -588,8 +741,8 @@ function renderIndividualSettings() {
     docOptionsHtml += `<option value="${doc.id}">${doc.name}</option>`;
   });
 
-  loadedPdfFiles.forEach((file, index) => {
-    let displayFileName = file.name;
+  loadedPdfFiles.forEach((item, index) => {
+    let displayFileName = item.customName;
     if (displayFileName.length > 30) {
       displayFileName = displayFileName.slice(0, 20) + "..." + displayFileName.slice(-6);
     }
@@ -626,6 +779,32 @@ function initVisualMode() {
   // 初回起動時は引き継ぎキャッシュをクリア
   lastVisualStamps = [];
   lastPdfOrientation = null;
+  lastPdfPtWidth = 0;
+  lastPdfPtHeight = 0;
+
+  // ファイル名入力欄のイベント（プロパティ代入で重複登録を防ぐ）
+  const commitFileName = () => {
+    if (loadedPdfFiles.length === 0) return;
+    let newName = visualFileNameInput.value.trim();
+    if (!newName) {
+      // 空なら元の名前に戻す
+      visualFileNameInput.value = loadedPdfFiles[currentVisualIndex].customName;
+      return;
+    }
+    if (!newName.toLowerCase().endsWith(".pdf")) newName += ".pdf";
+    loadedPdfFiles[currentVisualIndex].customName = newName;
+    visualFileNameInput.value = newName;
+  };
+
+  visualFileNameInput.onblur = commitFileName;
+  visualFileNameInput.onkeydown = e => {
+    if (e.key === "Enter") { e.preventDefault(); commitFileName(); visualFileNameInput.blur(); }
+    if (e.key === "Escape") {
+      visualFileNameInput.value = loadedPdfFiles[currentVisualIndex].customName;
+      visualFileNameInput.blur();
+    }
+  };
+
   renderVisualStep();
 }
 
@@ -648,21 +827,27 @@ async function renderPdfToCanvas(file) {
       visualStampsSettings[currentVisualIndex].ptHeight = ptHeight;
     }
 
-    // アスペクト比判定に基づき、プレビューコンテナのサイズを設定
-    let currentPreviewWidth = PREVIEW_WIDTH_PX;
-    let currentPreviewHeight = PREVIEW_HEIGHT_PX;
+    // CSSで幅は制御するため、JS側では幅を上書きしない
+    // 実際の描画幅を getBoundingClientRect で読み取り、高さのみ計算して設定
+    // width を一旦リセットしてCSSに戻す
+    visualPreviewArea.style.width = "";
+    visualPreviewArea.style.height = "";
+    // レイアウトを確定させてから実幅を取得
+    const containerWidth = visualPreviewArea.getBoundingClientRect().width || PREVIEW_WIDTH_PX;
 
+    // アスペクト比に基づき高さのみ設定（幅はCSSに任せる）
+    let previewHeight;
     if (ptWidth > ptHeight) {
-      // 横向きの場合 (幅678px × 高さ480px に設定)
-      currentPreviewWidth = PREVIEW_HEIGHT_PX;
-      currentPreviewHeight = PREVIEW_WIDTH_PX;
+      // 横向き：幅×(縦/横)比で高さを計算
+      previewHeight = Math.round(containerWidth * (ptHeight / ptWidth));
+    } else {
+      // 縦向き：幅×A4比で高さを計算
+      previewHeight = Math.round(containerWidth * (ptHeight / ptWidth));
     }
+    visualPreviewArea.style.height = previewHeight + "px";
 
-    visualPreviewArea.style.width = currentPreviewWidth + "px";
-    visualPreviewArea.style.height = currentPreviewHeight + "px";
-    
-    // Canvasアスペクト比率に合わせる
-    const scale = Math.min(currentPreviewWidth / ptWidth, currentPreviewHeight / ptHeight);
+    // Canvas をプレビューエリアと同じサイズにスケールして描画
+    const scale = containerWidth / ptWidth;
     const scaledViewport = page.getViewport({ scale: scale });
     
     canvas.width = scaledViewport.width;
@@ -686,15 +871,20 @@ async function renderPdfToCanvas(file) {
 async function renderVisualStep() {
   if (loadedPdfFiles.length === 0) return;
 
-  const currentFile = loadedPdfFiles[currentVisualIndex];
-  visualProgress.textContent = `PDF ${currentVisualIndex + 1} / ${loadedPdfFiles.length} (${currentFile.name})`;
+  const currentItem = loadedPdfFiles[currentVisualIndex];
+  visualProgress.textContent = `PDF ${currentVisualIndex + 1} / ${loadedPdfFiles.length}`;
+
+  // ファイル名入力欄を現在のファイルに同期（編集中でなければ上書き）
+  if (document.activeElement !== visualFileNameInput) {
+    visualFileNameInput.value = currentItem.customName;
+  }
 
   // プレビューエリアの初期化
   const stamps = visualPreviewArea.querySelectorAll(".draggable-stamp");
   stamps.forEach(s => s.remove());
 
   // PDF.jsで実際のPDFを描画する（完了を待ってから座標計算や配置を行う）
-  await renderPdfToCanvas(currentFile);
+  await renderPdfToCanvas(currentItem.file);
 
   // 前へボタンの有効・無効
   visualPrevBtn.disabled = currentVisualIndex === 0;
@@ -709,17 +899,21 @@ async function renderVisualStep() {
   const savedSettings = visualStampsSettings[currentVisualIndex];
   const ptWidth = savedSettings.ptWidth || A4_WIDTH_PT;
   const ptHeight = savedSettings.ptHeight || A4_HEIGHT_PT;
-  const currentPreviewWidth = parseFloat(visualPreviewArea.style.width) || PREVIEW_WIDTH_PX;
-  const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || PREVIEW_HEIGHT_PX;
+  // renderPdfToCanvas が高さを設定した後で実際のサイズを取得
+  const rect = visualPreviewArea.getBoundingClientRect();
+  const currentPreviewWidth = rect.width || PREVIEW_WIDTH_PX;
+  const currentPreviewHeight = rect.height || PREVIEW_HEIGHT_PX;
 
   const currentOrientation = ptWidth > ptHeight ? 'landscape' : 'portrait';
 
-  // もしこのファイルのスタンプがまだ未配置、かつ直前のスタンプ情報が存在し、かつ向きが一致していれば引き継ぐ
-  if (savedSettings.stamps.length === 0 && lastVisualStamps.length > 0 && lastPdfOrientation === currentOrientation) {
+  // 未配置かつ直前のスタンプ情報があれば常に引き継ぐ（向きが変わった場合は相対位置で変換）
+  if (savedSettings.stamps.length === 0 && lastVisualStamps.length > 0) {
+    const prevW = lastPdfPtWidth || (lastPdfOrientation === 'landscape' ? A4_HEIGHT_PT : A4_WIDTH_PT);
+    const prevH = lastPdfPtHeight || (lastPdfOrientation === 'landscape' ? A4_WIDTH_PT : A4_HEIGHT_PT);
     savedSettings.stamps = lastVisualStamps.map(last => ({
       stampFile: last.stampFile,
-      pdfX: last.pdfX,
-      pdfY: last.pdfY,
+      pdfX: Math.round((last.pdfX / prevW) * ptWidth),
+      pdfY: Math.round((last.pdfY / prevH) * ptHeight),
       width: last.width,
       height: last.height
     }));
@@ -778,8 +972,9 @@ function createVisualStampElement(stampFile, startX = null, startY = null) {
   });
   stampEl.appendChild(deleteBadge);
 
-  const currentPreviewWidth = parseFloat(visualPreviewArea.style.width) || PREVIEW_WIDTH_PX;
-  const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || PREVIEW_HEIGHT_PX;
+  const _initRect = visualPreviewArea.getBoundingClientRect();
+  const currentPreviewWidth = (_initRect.width || PREVIEW_WIDTH_PX);
+  const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _initRect.height || PREVIEW_HEIGHT_PX);
 
   // 位置の指定がなければ中央に配置
   if (startX === null) startX = (currentPreviewWidth - stampWidth) / 2;
@@ -812,8 +1007,9 @@ function createVisualStampElement(stampFile, startX = null, startY = null) {
     // プレビュー境界制限
     const stampWidth = stampEl.offsetWidth;
     const stampHeight = stampEl.offsetHeight;
-    const currentPreviewWidth = parseFloat(visualPreviewArea.style.width) || PREVIEW_WIDTH_PX;
-    const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || PREVIEW_HEIGHT_PX;
+    const _dragRect = visualPreviewArea.getBoundingClientRect();
+    const currentPreviewWidth = (_dragRect.width || PREVIEW_WIDTH_PX);
+    const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _dragRect.height || PREVIEW_HEIGHT_PX);
 
     if (x < 0) x = 0;
     if (x > currentPreviewWidth - stampWidth) x = currentPreviewWidth - stampWidth;
@@ -856,8 +1052,9 @@ function updateVisualCoordinates(px, py, width, height) {
   const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
   const ptHeight = (setting && setting.ptHeight) ? setting.ptHeight : A4_HEIGHT_PT;
   
-  const currentPreviewWidth = parseFloat(visualPreviewArea.style.width) || PREVIEW_WIDTH_PX;
-  const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || PREVIEW_HEIGHT_PX;
+  const _coordRect = visualPreviewArea.getBoundingClientRect();
+  const currentPreviewWidth = (_coordRect.width || PREVIEW_WIDTH_PX);
+  const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _coordRect.height || PREVIEW_HEIGHT_PX);
 
   // PDF-lib 座標系: 左下原点 (0,0)
   const x = Math.round((px / currentPreviewWidth) * ptWidth);
@@ -876,8 +1073,9 @@ function saveCurrentVisualStamps() {
   const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
   const ptHeight = (setting && setting.ptHeight) ? setting.ptHeight : A4_HEIGHT_PT;
   
-  const currentPreviewWidth = parseFloat(visualPreviewArea.style.width) || PREVIEW_WIDTH_PX;
-  const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || PREVIEW_HEIGHT_PX;
+  const _saveRect = visualPreviewArea.getBoundingClientRect();
+  const currentPreviewWidth = (_saveRect.width || PREVIEW_WIDTH_PX);
+  const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _saveRect.height || PREVIEW_HEIGHT_PX);
 
   stampEls.forEach(el => {
     const px = parseFloat(el.style.left) || 0;
@@ -933,6 +1131,8 @@ visualNextBtn.addEventListener("click", async () => {
     height: s.height
   }));
   lastPdfOrientation = ptWidth > ptHeight ? 'landscape' : 'portrait';
+  lastPdfPtWidth = ptWidth;
+  lastPdfPtHeight = ptHeight;
 
   if (currentVisualIndex < loadedPdfFiles.length - 1) {
     currentVisualIndex++;
@@ -963,9 +1163,10 @@ async function processPdfOutput(mode = "normal") {
   if (isVisualMode) {
     // ビジュアル連続押印設定からビルド
     visualStampsSettings.forEach((setting, fileIdx) => {
-      const file = loadedPdfFiles[fileIdx];
+      const item = loadedPdfFiles[fileIdx];
       processList.push({
-        file,
+        file: item.file,
+        customName: item.customName,
         stamps: setting.stamps.map(s => ({
           stampFile: s.stampFile,
           x: s.pdfX,
@@ -979,17 +1180,18 @@ async function processPdfOutput(mode = "normal") {
     // 個別設定からビルド
     const selects = document.querySelectorAll(".indiv-doc-select");
     for (let index = 0; index < loadedPdfFiles.length; index++) {
-      const file = loadedPdfFiles[index];
+      const item = loadedPdfFiles[index];
       const docId = selects[index].value;
       const doc = docTypes.find(d => d.id === docId);
 
       if (!doc) {
-        alert(`${file.name} に対する書類種別が設定されていません。`);
+        alert(`${item.customName} に対する書類種別が設定されていません。`);
         return;
       }
 
       processList.push({
-        file,
+        file: item.file,
+        customName: item.customName,
         stamps: doc.rules.map(r => ({
           stampFile: r.stamp,
           x: r.x,
@@ -1009,9 +1211,10 @@ async function processPdfOutput(mode = "normal") {
       return;
     }
 
-    loadedPdfFiles.forEach(file => {
+    loadedPdfFiles.forEach(item => {
       processList.push({
-        file,
+        file: item.file,
+        customName: item.customName,
         stamps: doc.rules.map(r => ({
           stampFile: r.stamp,
           x: r.x,
@@ -1043,8 +1246,7 @@ async function processPdfOutput(mode = "normal") {
       fs.mkdirSync(outputFolderPath);
     }
 
-    for (const item of processList) {
-      const { file, stamps } = item;
+    for (const { file, customName, stamps } of processList) {
       const pdfBytes = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const page = pdfDoc.getPages()[0];
@@ -1074,7 +1276,7 @@ async function processPdfOutput(mode = "normal") {
       }
 
       const updatedPdfBytes = await pdfDoc.save();
-      const outputFilePath = path.join(outputFolderPath, file.name);
+      const outputFilePath = path.join(outputFolderPath, customName);
       fs.writeFileSync(outputFilePath, updatedPdfBytes);
     }
 
@@ -1105,7 +1307,15 @@ stampPdfBtn.addEventListener("click", () => processPdfOutput("normal"));
 
 
 // --- アプリケーション起動時の初期処理 ---
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
+  // まず書き込み可能な印影フォルダパスを取得してから初期化
+  try {
+    const folder = await ipcRenderer.invoke("get-stamp-folder");
+    stampFolder = folder;
+  } catch (e) {
+    console.warn("get-stamp-folder failed, using fallback:", e);
+  }
+
   initMasterData();
   loadSelectOptions();
   displayFiles();
@@ -1132,6 +1342,28 @@ window.addEventListener("DOMContentLoaded", () => {
   
   // 座標測定モーダル制御のイベント登録
   initMeasureModalEvents();
+
+  // ウィンドウリサイズ時にビジュアルモードのプレビューを再描画
+  // document.body を observe するとプレビュー高さ変更でループするため
+  // tabContentStamp（プレビューエリアの親で、ウィンドウ幅変化のみ検知）を observe する
+  let resizeTimer = null;
+  const resizeObserver = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      // 高さの変化は無視し、幅の変化のみ再描画トリガーとする
+      const newWidth = entry.contentRect.width;
+      if (!resizeObserver._lastWidth) resizeObserver._lastWidth = newWidth;
+      if (Math.abs(newWidth - resizeObserver._lastWidth) < 2) return; // 2px未満の変化は無視
+      resizeObserver._lastWidth = newWidth;
+
+      if (!sectionVisual.classList.contains("hidden") && loadedPdfFiles.length > 0) {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          renderVisualStep();
+        }, 300);
+      }
+    }
+  });
+  resizeObserver.observe(tabContentStamp);
 });
 
 // --- 座標自動測定モーダル制御 ---

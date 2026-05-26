@@ -17,7 +17,7 @@
     ></script>
   </head>
   <body>
-    <div class="container">
+    <div class="container is-fluid">
       <header class="hero">
         <div class="hero-body">
           <h1 class="title">SignFlow</h1>
@@ -112,41 +112,53 @@
           <!-- 個別ビジュアル連続押印セクション -->
           <section id="sectionVisual" class="hidden">
             <div class="preview-container">
-              <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+
+              <!-- 進捗 + 座標表示 -->
+              <div class="visual-progress-row">
                 <p id="visualProgress" class="label-title" style="margin-bottom:0;">PDF 1 / 1</p>
                 <div id="visualPosFields" class="hidden" style="display: flex; gap: 12px; font-size: 0.75rem; color: var(--text-secondary);">
                   <span>X: <strong id="visualXVal" style="color: var(--accent-color);">0</strong></span>
                   <span>Y: <strong id="visualYVal" style="color: var(--accent-color);">0</strong></span>
                 </div>
               </div>
-              
-              <!-- A4比率のドラッグエリア (大型化) -->
-              <div id="visualPreviewArea" class="preview-canvas-wrapper">
-                <canvas id="pdfPreviewCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></canvas>
-                <!-- ドラッグ可能なスタンプ要素が動的に追加される -->
+
+              <!-- ファイル名リネーム行 -->
+              <div class="visual-rename-row">
+                <i class="fa-regular fa-file-pdf" style="color: #ef4444; font-size: 1rem; flex-shrink:0;"></i>
+                <input id="visualFileNameInput"
+                       type="text"
+                       class="input"
+                       placeholder="出力ファイル名"
+                       style="flex:1; font-size:0.82rem; height:2em; border-color:#cbd5e1;"
+                       title="出力するファイル名（Enterで確定）" />
+                <span style="font-size:0.72rem; color:#94a3b8; flex-shrink:0; white-space:nowrap;">← 出力名を編集</span>
               </div>
 
-              <!-- 配置対象スタンプ選択と微調整 -->
-              <div style="width: 100%; max-width: 480px; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 12px;">
-                <p class="label-title">配置する印影を選択</p>
-                <div class="columns is-mobile is-vcentered">
-                  <div class="column is-8">
-                    <div class="select">
-                      <select id="visualStampSelect">
-                        <!-- スタンプ一覧 -->
-                      </select>
+              <!-- プレビュー本体 + サイドバーコントロール -->
+              <div class="visual-body">
+                <!-- PDFプレビューエリア -->
+                <div id="visualPreviewArea" class="preview-canvas-wrapper">
+                  <canvas id="pdfPreviewCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></canvas>
+                </div>
+
+                <!-- 右サイドバー: 印影選択 + ナビゲーション -->
+                <div class="visual-sidebar">
+                  <div class="visual-stamp-panel">
+                    <p class="label-title">配置する印影を選択</p>
+                    <div class="select" style="width: 100%; margin-bottom: 8px;">
+                      <select id="visualStampSelect" style="width: 100%;"></select>
                     </div>
+                    <button id="addVisualStampBtn" class="btn-submit" style="background: #475569;">
+                      <i class="fa-solid fa-plus"></i> 追加
+                    </button>
                   </div>
-                  <div class="column is-4">
-                    <button id="addVisualStampBtn" class="btn-submit" style="background: #475569; padding: 6px 12px; height: auto;">追加</button>
+                  <div class="visual-nav-buttons">
+                    <button id="visualPrevBtn" class="btn-submit" style="background: #64748b;" disabled>前へ</button>
+                    <button id="visualNextBtn" class="btn-submit">配置を決定して次へ</button>
                   </div>
                 </div>
               </div>
 
-              <div style="display: flex; gap: 8px; width: 100%; max-width: 480px; margin-top: 12px;">
-                <button id="visualPrevBtn" class="btn-submit" style="background: #64748b;" disabled>前へ</button>
-                <button id="visualNextBtn" class="btn-submit">配置を決定して次へ</button>
-              </div>
             </div>
           </section>
         </div>
