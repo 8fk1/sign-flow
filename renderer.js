@@ -12,11 +12,18 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve("pdfjs-dist/build/pdf.w
 const _pdfjsDistPath = path.dirname(require.resolve("pdfjs-dist/package.json"));
 const CMAP_URL = "file:///" + _pdfjsDistPath.replace(/\\/g, "/") + "/cmaps/";
 
-// Windowsシステムの日本語フォントを埋め込む（TTF優先、次にTTC）
+// OS ごとに日本語フォントを埋め込む（Mac: ヒラギノ、Windows: 游ゴシック等）
 async function embedJapaneseFont(pdfDoc) {
   pdfDoc.registerFontkit(fontkit);
   const windir = process.env.WINDIR || "C:\\Windows";
   const candidates = [
+    // macOS: ヒラギノ角ゴシック（プレビューで使われるフォントに近い）
+    "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+    "/System/Library/Fonts/ヒラギノ角ゴシック W4.ttc",
+    "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+    "/System/Library/Fonts/ヒラギノ丸ゴ ProN W4.ttc",
+    "/Library/Fonts/Arial Unicode.ttf",
+    // Windows: 游ゴシック・メイリオ等
     path.join(windir, "Fonts", "yumin.ttf"),       // 游明朝 Regular (TTF)
     path.join(windir, "Fonts", "yuminl.ttf"),      // 游明朝 Light (TTF)
     path.join(windir, "Fonts", "yumindb.ttf"),     // 游明朝 DemiBold (TTF)
@@ -1037,8 +1044,8 @@ async function renderVisualStep() {
   const ptHeight = savedSettings.ptHeight || A4_HEIGHT_PT;
   // renderPdfToCanvas が高さを設定した後で実際のサイズを取得
   const rect = visualPreviewArea.getBoundingClientRect();
-  const currentPreviewWidth = rect.width || PREVIEW_WIDTH_PX;
-  const currentPreviewHeight = rect.height || PREVIEW_HEIGHT_PX;
+  const currentPreviewWidth = visualPreviewArea.clientWidth || rect.width || PREVIEW_WIDTH_PX;
+  const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || rect.height || PREVIEW_HEIGHT_PX;
 
   const currentOrientation = ptWidth > ptHeight ? 'landscape' : 'portrait';
 
@@ -1085,36 +1092,38 @@ async function renderVisualStep() {
     const restoreH = previewStampH || getStampDimensions(saved.stampFile).previewHeight;
     const px = (saved.pdfX / ptWidth) * currentPreviewWidth;
     const py = currentPreviewHeight - ((saved.pdfY / ptHeight) * currentPreviewHeight) - restoreH;
-    createVisualStampElement(saved.stampFile, px, py, previewStampW, previewStampH);
+    createVisualStampElement(saved.stampFile, px, py, previewStampW, previewStampH, true);
   });
 
   // 保存済みの日付テキストがあれば再現
   (savedSettings.dateTexts || []).forEach(saved => {
     const scale = currentPreviewWidth / ptWidth;
     const displayFontSizePx = Math.max(8, Math.round(saved.fontSizePt * scale));
-    const approxElH = displayFontSizePx + 8;
-    // pdfX はテキスト開始位置なので、要素の left = pdfX変換値 - border(1) - padding(4)
+    // approxElH = border-top(1) + padding-top(1) + baseline offset(0.8*fontSize) — matches saveDateTexts
+    const approxElH = 2 + Math.round(0.8 * displayFontSizePx);
     const textPx = (saved.pdfX / ptWidth) * currentPreviewWidth;
     const elPx = Math.max(0, textPx - 5);
     const py = currentPreviewHeight - (saved.pdfY / ptHeight) * currentPreviewHeight - approxElH;
-    createDateTextElement(saved.text, elPx, py, saved.fontSizePt);
+    createDateTextElement(saved.text, elPx, py, saved.fontSizePt, true);
   });
 
   // 保存済みの日付行があれば再現
   (savedSettings.dateRows || []).forEach(saved => {
     const scale = currentPreviewWidth / ptWidth;
     const displayFontSizePx = Math.max(8, Math.round(saved.fontSizePt * scale));
-    const approxElH = displayFontSizePx + 8;
+    const approxElH = 2 + Math.round(0.8 * displayFontSizePx);
     const gap1Px = Math.round((saved.gap1Pt / ptWidth) * currentPreviewWidth);
     const gap2Px = Math.round((saved.gap2Pt / ptWidth) * currentPreviewWidth);
-    const px = (saved.pdfX / ptWidth) * currentPreviewWidth;
+    // pdfX は yearSpan の左端（要素外端 + border(1) + padding-left(4) = el_px + 5）を基準に保存されているため
+    // 要素の left (el_px) を復元するには -5 する（saveDateTexts の textPx - 5 と同じ補正）
+    const px = Math.max(0, (saved.pdfX / ptWidth) * currentPreviewWidth - 5);
     const py = currentPreviewHeight - (saved.pdfY / ptHeight) * currentPreviewHeight - approxElH;
-    createDateRowElement(saved.year, saved.month, saved.day, saved.fontSizePt, gap1Px, gap2Px, px, py);
+    createDateRowElement(saved.year, saved.month, saved.day, saved.fontSizePt, gap1Px, gap2Px, px, py, true);
   });
 }
 
 // プレビュー上にスタンプ要素を生成する（initialWidth/Height: 復元時のピクセルサイズ）
-function createVisualStampElement(stampFile, startX = null, startY = null, initialWidth = null, initialHeight = null) {
+function createVisualStampElement(stampFile, startX = null, startY = null, initialWidth = null, initialHeight = null, skipSave = false) {
   const stampEl = document.createElement("div");
   stampEl.className = "draggable-stamp";
 
@@ -1175,7 +1184,7 @@ function createVisualStampElement(stampFile, startX = null, startY = null, initi
 
       // プレビューエリアからはみ出さないよう制限
       const areaRect = visualPreviewArea.getBoundingClientRect();
-      const areaW = areaRect.width || PREVIEW_WIDTH_PX;
+      const areaW = visualPreviewArea.clientWidth || areaRect.width || PREVIEW_WIDTH_PX;
       const areaH = parseFloat(visualPreviewArea.style.height) || areaRect.height || PREVIEW_HEIGHT_PX;
       const left = parseFloat(stampEl.style.left) || 0;
       const top = parseFloat(stampEl.style.top) || 0;
@@ -1199,7 +1208,7 @@ function createVisualStampElement(stampFile, startX = null, startY = null, initi
   stampEl.appendChild(resizeHandle);
 
   const _initRect = visualPreviewArea.getBoundingClientRect();
-  const currentPreviewWidth = (_initRect.width || PREVIEW_WIDTH_PX);
+  const currentPreviewWidth = (visualPreviewArea.clientWidth || _initRect.width || PREVIEW_WIDTH_PX);
   const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _initRect.height || PREVIEW_HEIGHT_PX);
 
   // 位置の指定がなければ現在表示中の範囲の中心に配置
@@ -1238,13 +1247,13 @@ function createVisualStampElement(stampFile, startX = null, startY = null, initi
     if (!isDragging) return;
 
     const areaRect = visualPreviewArea.getBoundingClientRect();
-    let x = e.clientX - areaRect.left - offsetX;
-    let y = e.clientY - areaRect.top - offsetY;
+    let x = e.clientX - areaRect.left - visualPreviewArea.clientLeft - offsetX;
+    let y = e.clientY - areaRect.top - visualPreviewArea.clientTop - offsetY;
 
     const curW = stampEl.offsetWidth;
     const curH = stampEl.offsetHeight;
     const _dragRect = visualPreviewArea.getBoundingClientRect();
-    const currentPreviewWidth = (_dragRect.width || PREVIEW_WIDTH_PX);
+    const currentPreviewWidth = (visualPreviewArea.clientWidth || _dragRect.width || PREVIEW_WIDTH_PX);
     const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _dragRect.height || PREVIEW_HEIGHT_PX);
 
     if (x < 0) x = 0;
@@ -1275,7 +1284,7 @@ function createVisualStampElement(stampFile, startX = null, startY = null, initi
   });
 
   visualPreviewArea.appendChild(stampEl);
-  saveCurrentVisualStamps();
+  if (!skipSave) saveCurrentVisualStamps();
 }
 
 // プレビュー座標からPDF上の座標(X, Y)を算出して表示
@@ -1287,7 +1296,7 @@ function updateVisualCoordinates(px, py, width, height) {
   const ptHeight = (setting && setting.ptHeight) ? setting.ptHeight : A4_HEIGHT_PT;
 
   const _coordRect = visualPreviewArea.getBoundingClientRect();
-  const currentPreviewWidth = (_coordRect.width || PREVIEW_WIDTH_PX);
+  const currentPreviewWidth = (visualPreviewArea.clientWidth || _coordRect.width || PREVIEW_WIDTH_PX);
   const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _coordRect.height || PREVIEW_HEIGHT_PX);
 
   // PDF-lib 座標系: 左下原点 (0,0)
@@ -1308,7 +1317,7 @@ function saveCurrentVisualStamps() {
   const ptHeight = (setting && setting.ptHeight) ? setting.ptHeight : A4_HEIGHT_PT;
 
   const _saveRect = visualPreviewArea.getBoundingClientRect();
-  const currentPreviewWidth = (_saveRect.width || PREVIEW_WIDTH_PX);
+  const currentPreviewWidth = (visualPreviewArea.clientWidth || _saveRect.width || PREVIEW_WIDTH_PX);
   const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _saveRect.height || PREVIEW_HEIGHT_PX);
 
   stampEls.forEach(el => {
@@ -1350,8 +1359,10 @@ function saveDateTexts() {
   const ptHeight = (setting && setting.ptHeight) ? setting.ptHeight : A4_HEIGHT_PT;
 
   const areaRect = visualPreviewArea.getBoundingClientRect();
-  const currentPreviewWidth = areaRect.width || PREVIEW_WIDTH_PX;
+  const currentPreviewWidth = visualPreviewArea.clientWidth || areaRect.width || PREVIEW_WIDTH_PX;
   const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || areaRect.height || PREVIEW_HEIGHT_PX;
+  const borderLeft = visualPreviewArea.clientLeft;
+  const borderTop = visualPreviewArea.clientTop;
 
   dateEls.forEach(el => {
     const px = parseFloat(el.style.left) || 0;
@@ -1365,9 +1376,9 @@ function saveDateTexts() {
     // Y: getBoundingClientRect でベースラインを測定、取得不可ならフォールバック
     const contentSpan = el.querySelector(".date-content");
     let pdfY;
-    if (contentSpan && areaRect.width > 0) {
+    if (contentSpan && currentPreviewWidth > 0) {
       const spanRect = contentSpan.getBoundingClientRect();
-      const baseline = spanRect.bottom - areaRect.top - spanRect.height * 0.2;
+      const baseline = spanRect.bottom - areaRect.top - borderTop - spanRect.height * 0.2;
       pdfY = Math.round(((currentPreviewHeight - baseline) / currentPreviewHeight) * ptHeight);
     } else {
       const elH = el.offsetHeight;
@@ -1391,8 +1402,10 @@ function saveDateRows() {
   const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
   const ptHeight = (setting && setting.ptHeight) ? setting.ptHeight : A4_HEIGHT_PT;
   const areaRect = visualPreviewArea.getBoundingClientRect();
-  const currentPreviewWidth = areaRect.width || PREVIEW_WIDTH_PX;
+  const currentPreviewWidth = visualPreviewArea.clientWidth || areaRect.width || PREVIEW_WIDTH_PX;
   const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || areaRect.height || PREVIEW_HEIGHT_PX;
+  const borderLeft = visualPreviewArea.clientLeft;
+  const borderTop = visualPreviewArea.clientTop;
 
   rowEls.forEach(el => {
     const px = parseFloat(el.style.left) || 0;
@@ -1407,17 +1420,18 @@ function saveDateRows() {
     // 年スパンの実際の描画位置をDOMから取得（paddingのズレを解消）
     const yearSpan = el.querySelector(".date-row-num");
     let pdfX, pdfY;
-    if (yearSpan && areaRect.width > 0) {
+    if (yearSpan && currentPreviewWidth > 0) {
       const spanRect = yearSpan.getBoundingClientRect();
-      const actualX = spanRect.left - areaRect.left;
+      const actualX = spanRect.left - areaRect.left - borderLeft;
       // ベースライン ≈ spanの下端から上に約20%の位置
-      const baseline = spanRect.bottom - areaRect.top - spanRect.height * 0.2;
+      const baseline = spanRect.bottom - areaRect.top - borderTop - spanRect.height * 0.2;
       pdfX = Math.round((actualX / currentPreviewWidth) * ptWidth);
       pdfY = Math.round(((currentPreviewHeight - baseline) / currentPreviewHeight) * ptHeight);
     } else {
       // フォールバック（要素位置から推定）
+      // 主パスと同じく yearSpan 相当位置（el_px + 5）を基準に保存して復元時の -5 補正と一致させる
       const elH = el.offsetHeight;
-      pdfX = Math.round((px / currentPreviewWidth) * ptWidth);
+      pdfX = Math.round(((px + 5) / currentPreviewWidth) * ptWidth);
       pdfY = Math.round(((currentPreviewHeight - py - elH * 0.85) / currentPreviewHeight) * ptHeight);
     }
 
@@ -1433,7 +1447,7 @@ function saveDateRows() {
 }
 
 // プレビュー上に日付行要素（年・月・日を一行で）を生成する
-function createDateRowElement(year, month, day, fontSizePt = 8, gap1Px = 24, gap2Px = 24, startX = null, startY = null) {
+function createDateRowElement(year, month, day, fontSizePt = 8, gap1Px = 24, gap2Px = 24, startX = null, startY = null, skipSave = false) {
   const el = document.createElement("div");
   el.className = "draggable-date-row";
   el.dataset.year = year;
@@ -1446,7 +1460,7 @@ function createDateRowElement(year, month, day, fontSizePt = 8, gap1Px = 24, gap
   const setting = visualStampsSettings[currentVisualIndex];
   const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
   const _rect = visualPreviewArea.getBoundingClientRect();
-  const currentPreviewWidth = _rect.width || PREVIEW_WIDTH_PX;
+  const currentPreviewWidth = visualPreviewArea.clientWidth || _rect.width || PREVIEW_WIDTH_PX;
   const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || _rect.height || PREVIEW_HEIGHT_PX;
   const scale = currentPreviewWidth / ptWidth;
   const displayFontSize = Math.max(8, Math.round(fontSizePt * scale));
@@ -1526,9 +1540,9 @@ function createDateRowElement(year, month, day, fontSizePt = 8, gap1Px = 24, gap
   document.addEventListener("mousemove", e => {
     if (!el._isDragging) return;
     const areaRect = visualPreviewArea.getBoundingClientRect();
-    let x = e.clientX - areaRect.left - el._dragOffsetX;
-    let y = e.clientY - areaRect.top - el._dragOffsetY;
-    const areaW = areaRect.width || PREVIEW_WIDTH_PX;
+    let x = e.clientX - areaRect.left - visualPreviewArea.clientLeft - el._dragOffsetX;
+    let y = e.clientY - areaRect.top - visualPreviewArea.clientTop - el._dragOffsetY;
+    const areaW = visualPreviewArea.clientWidth || areaRect.width || PREVIEW_WIDTH_PX;
     const areaH = parseFloat(visualPreviewArea.style.height) || areaRect.height || PREVIEW_HEIGHT_PX;
     x = Math.max(0, Math.min(x, areaW - el.offsetWidth));
     y = Math.max(0, Math.min(y, areaH - el.offsetHeight));
@@ -1545,7 +1559,7 @@ function createDateRowElement(year, month, day, fontSizePt = 8, gap1Px = 24, gap
   });
 
   visualPreviewArea.appendChild(el);
-  saveDateRows();
+  if (!skipSave) saveDateRows();
 }
 
 // 日付行の編集可能な数字スパンを作成
@@ -1636,7 +1650,7 @@ function makeGapHandle(parentEl, dataKey, initialWidthPx) {
 }
 
 // プレビュー上に日付テキスト要素を生成する
-function createDateTextElement(text, startX = null, startY = null, fontSizePt = 12) {
+function createDateTextElement(text, startX = null, startY = null, fontSizePt = 12, skipSave = false) {
   const el = document.createElement("div");
   el.className = "draggable-date-text";
   el.dataset.text = text;
@@ -1645,7 +1659,7 @@ function createDateTextElement(text, startX = null, startY = null, fontSizePt = 
   const setting = visualStampsSettings[currentVisualIndex];
   const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
   const _rect = visualPreviewArea.getBoundingClientRect();
-  const currentPreviewWidth = _rect.width || PREVIEW_WIDTH_PX;
+  const currentPreviewWidth = visualPreviewArea.clientWidth || _rect.width || PREVIEW_WIDTH_PX;
   const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || _rect.height || PREVIEW_HEIGHT_PX;
   const scale = currentPreviewWidth / ptWidth;
   const displayFontSize = Math.max(8, Math.round(fontSizePt * scale));
@@ -1703,9 +1717,9 @@ function createDateTextElement(text, startX = null, startY = null, fontSizePt = 
   document.addEventListener("mousemove", e => {
     if (!isDragging) return;
     const areaRect = visualPreviewArea.getBoundingClientRect();
-    let x = e.clientX - areaRect.left - offsetX;
-    let y = e.clientY - areaRect.top - offsetY;
-    const areaW = areaRect.width || PREVIEW_WIDTH_PX;
+    let x = e.clientX - areaRect.left - visualPreviewArea.clientLeft - offsetX;
+    let y = e.clientY - areaRect.top - visualPreviewArea.clientTop - offsetY;
+    const areaW = visualPreviewArea.clientWidth || areaRect.width || PREVIEW_WIDTH_PX;
     const areaH = parseFloat(visualPreviewArea.style.height) || areaRect.height || PREVIEW_HEIGHT_PX;
     x = Math.max(0, Math.min(x, areaW - el.offsetWidth));
     y = Math.max(0, Math.min(y, areaH - el.offsetHeight));
@@ -1778,7 +1792,7 @@ function createDateTextElement(text, startX = null, startY = null, fontSizePt = 
 
       const _s = visualStampsSettings[currentVisualIndex];
       const _ptW = (_s && _s.ptWidth) ? _s.ptWidth : A4_WIDTH_PT;
-      const _pW = visualPreviewArea.getBoundingClientRect().width || PREVIEW_WIDTH_PX;
+      const _pW = visualPreviewArea.clientWidth || visualPreviewArea.getBoundingClientRect().width || PREVIEW_WIDTH_PX;
       const newDisplaySize = Math.max(8, Math.round(newFontSizePt * (_pW / _ptW)));
       contentSpan.style.fontSize = newDisplaySize + "px";
 
@@ -1807,7 +1821,7 @@ function createDateTextElement(text, startX = null, startY = null, fontSizePt = 
   });
 
   visualPreviewArea.appendChild(el);
-  saveDateTexts();
+  if (!skipSave) saveDateTexts();
 }
 
 // スタンプ追加ボタン
