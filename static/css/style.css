@@ -367,6 +367,15 @@ p.label-title {
   align-items: flex-start;
 }
 
+/* ズーム時のパン操作カーソル */
+#pdfPreviewCanvas {
+  cursor: grab;
+}
+#visualPreviewScrollWrapper.is-panning,
+#visualPreviewScrollWrapper.is-panning * {
+  cursor: grabbing !important;
+}
+
 .preview-canvas-wrapper {
   position: relative;
   flex: 1;
@@ -778,7 +787,7 @@ p.label-title {
 
 .toast {
   min-width: 280px;
-  max-width: 380px;
+  max-width: 440px;
   padding: 14px 20px;
   border-radius: 8px;
   background: #ffffff;
@@ -788,12 +797,14 @@ p.label-title {
   font-size: 0.85rem;
   font-weight: 600;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   pointer-events: auto;
   transform: translateX(120%);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s;
   opacity: 0;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .toast.is-show {

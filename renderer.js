@@ -1202,9 +1202,20 @@ function createVisualStampElement(stampFile, startX = null, startY = null, initi
   const currentPreviewWidth = (_initRect.width || PREVIEW_WIDTH_PX);
   const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _initRect.height || PREVIEW_HEIGHT_PX);
 
-  // 位置の指定がなければ中央に配置
-  if (startX === null) startX = (currentPreviewWidth - stampWidth) / 2;
-  if (startY === null) startY = (currentPreviewHeight - stampHeight) / 2;
+  // 位置の指定がなければ現在表示中の範囲の中心に配置
+  if (startX === null || startY === null) {
+    const _vc = getVisibleCenter();
+    if (startX === null) {
+      startX = _vc
+        ? Math.max(0, Math.min(currentPreviewWidth - stampWidth, _vc.x - stampWidth / 2))
+        : (currentPreviewWidth - stampWidth) / 2;
+    }
+    if (startY === null) {
+      startY = _vc
+        ? Math.max(0, Math.min(currentPreviewHeight - stampHeight, _vc.y - stampHeight / 2))
+        : (currentPreviewHeight - stampHeight) / 2;
+    }
+  }
 
   stampEl.style.left = startX + "px";
   stampEl.style.top = startY + "px";
@@ -1476,8 +1487,20 @@ function createDateRowElement(year, month, day, fontSizePt = 8, gap1Px = 24, gap
   });
   el.appendChild(deleteBadge);
 
-  if (startX === null) startX = (currentPreviewWidth - 120) / 2;
-  if (startY === null) startY = (currentPreviewHeight - displayFontSize) / 2;
+  if (startX === null || startY === null) {
+    const _vc = getVisibleCenter();
+    const _elW = 120, _elH = displayFontSize;
+    if (startX === null) {
+      startX = _vc
+        ? Math.max(0, Math.min(currentPreviewWidth - _elW, _vc.x - _elW / 2))
+        : (currentPreviewWidth - _elW) / 2;
+    }
+    if (startY === null) {
+      startY = _vc
+        ? Math.max(0, Math.min(currentPreviewHeight - _elH, _vc.y - _elH / 2))
+        : (currentPreviewHeight - _elH) / 2;
+    }
+  }
   el.style.left = startX + "px";
   el.style.top = startY + "px";
 
@@ -1646,8 +1669,20 @@ function createDateTextElement(text, startX = null, startY = null, fontSizePt = 
   });
   el.appendChild(deleteBadge);
 
-  if (startX === null) startX = (currentPreviewWidth - 50) / 2;
-  if (startY === null) startY = (currentPreviewHeight - displayFontSize) / 2;
+  if (startX === null || startY === null) {
+    const _vc = getVisibleCenter();
+    const _elW = 50, _elH = displayFontSize;
+    if (startX === null) {
+      startX = _vc
+        ? Math.max(0, Math.min(currentPreviewWidth - _elW, _vc.x - _elW / 2))
+        : (currentPreviewWidth - _elW) / 2;
+    }
+    if (startY === null) {
+      startY = _vc
+        ? Math.max(0, Math.min(currentPreviewHeight - _elH, _vc.y - _elH / 2))
+        : (currentPreviewHeight - _elH) / 2;
+    }
+  }
 
   el.style.left = startX + "px";
   el.style.top = startY + "px";
@@ -2029,6 +2064,16 @@ async function processPdfOutput(mode = "normal") {
 stampPdfBtn.addEventListener("click", () => processPdfOutput("normal"));
 
 
+// スクロールラッパー内の現在表示中の中心座標（プレビューエリア内px）を返す
+function getVisibleCenter() {
+  const sw = document.getElementById("visualPreviewScrollWrapper");
+  if (!sw) return null;
+  return {
+    x: sw.scrollLeft + sw.clientWidth / 2,
+    y: sw.scrollTop + sw.clientHeight / 2,
+  };
+}
+
 // ズームインジケーターを更新する
 function updateZoomDisplay() {
   const el = document.getElementById("zoomIndicator");
@@ -2059,7 +2104,7 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   // Ctrl+↑↓ でズームイン・ズームアウト
-  if (e.ctrlKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
     e.preventDefault();
     changeZoom(e.key === "ArrowUp" ? 0.1 : -0.1);
   }
@@ -2165,11 +2210,52 @@ window.addEventListener("DOMContentLoaded", async () => {
   const _scrollWrapper = document.getElementById("visualPreviewScrollWrapper");
   if (_scrollWrapper) {
     _scrollWrapper.addEventListener("wheel", (e) => {
-      if (e.ctrlKey) {
+      if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         changeZoomDebounced(e.deltaY < 0 ? 0.1 : -0.1);
       }
     }, { passive: false });
+  }
+
+  // ドラッグでパン（スクロール）操作 — スタンプや日付要素以外の領域をドラッグで視点移動
+  {
+    let _isPanning = false;
+    let _panStartX = 0, _panStartY = 0;
+    let _panScrollLeft = 0, _panScrollTop = 0;
+
+    visualPreviewArea.addEventListener("mousedown", (e) => {
+      // スタンプ・日付・リサイズハンドル・削除バッジはパン対象外
+      if (e.target.closest(
+        ".draggable-stamp, .draggable-date-text, .draggable-date-row, .date-edit-popup"
+      )) return;
+
+      const sw = document.getElementById("visualPreviewScrollWrapper");
+      if (!sw) return;
+
+      _isPanning = true;
+      _panStartX = e.clientX;
+      _panStartY = e.clientY;
+      _panScrollLeft = sw.scrollLeft;
+      _panScrollTop = sw.scrollTop;
+      sw.classList.add("is-panning");
+      e.preventDefault();
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!_isPanning) return;
+      const sw = document.getElementById("visualPreviewScrollWrapper");
+      if (!sw) return;
+      sw.scrollLeft = _panScrollLeft - (e.clientX - _panStartX);
+      sw.scrollTop  = _panScrollTop  - (e.clientY - _panStartY);
+    });
+
+    document.addEventListener("mouseup", () => {
+      if (_isPanning) {
+        _isPanning = false;
+        const sw = document.getElementById("visualPreviewScrollWrapper");
+        if (sw) sw.classList.remove("is-panning");
+      }
+    });
   }
 
   // ウィンドウリサイズ時にビジュアルモードのプレビューを再描画
