@@ -25,6 +25,12 @@ function initStampFolder() {
 // GPUのサンドボックスを無効化
 app.commandLine.appendSwitch('disable-gpu-sandbox')
 
+// F12キーでDevToolsを開く（デバッグ用）
+ipcMain.on('open-devtools', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.webContents.openDevTools({ mode: 'detach' });
+});
+
 ipcMain.handle('show-open-dialog', async (event, options) => {
   const result = await dialog.showOpenDialog({
     title: '保存先フォルダを選択',
@@ -51,8 +57,8 @@ ipcMain.handle('show-image-dialog', async (event) => {
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
-    width: 1250,
-    height: 900,
+    width: 1000,
+    height: 650,
     title: 'SignFlow',
     // frame: false,
     icon: path.join(__dirname, 'static/img/icon/icon.png'),

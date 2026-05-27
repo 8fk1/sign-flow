@@ -1,11 +1,44 @@
 const { ipcRenderer, shell } = require("electron");
-const { PDFDocument } = require("pdf-lib");
+const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
+const fontkit = require("@pdf-lib/fontkit");
 const fs = require("fs");
 const path = require("path");
 
 // PDF.jsのローカルロード設定 (Electron nodeIntegration対応)
 const pdfjsLib = require("pdfjs-dist/build/pdf.js");
 pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve("pdfjs-dist/build/pdf.worker.js");
+
+// 日本語PDFの文字レンダリングに必要なCMapファイルのパス
+const _pdfjsDistPath = path.dirname(require.resolve("pdfjs-dist/package.json"));
+const CMAP_URL = "file:///" + _pdfjsDistPath.replace(/\\/g, "/") + "/cmaps/";
+
+// Windowsシステムの日本語フォントを埋め込む（TTF優先、次にTTC）
+async function embedJapaneseFont(pdfDoc) {
+  pdfDoc.registerFontkit(fontkit);
+  const windir = process.env.WINDIR || "C:\\Windows";
+  const candidates = [
+    path.join(windir, "Fonts", "yumin.ttf"),       // 游明朝 Regular (TTF)
+    path.join(windir, "Fonts", "yuminl.ttf"),      // 游明朝 Light (TTF)
+    path.join(windir, "Fonts", "yumindb.ttf"),     // 游明朝 DemiBold (TTF)
+    path.join(windir, "Fonts", "YuGothR.ttc"),     // 游ゴシック Regular (TTC)
+    path.join(windir, "Fonts", "meiryo.ttc"),      // メイリオ (TTC)
+    path.join(windir, "Fonts", "msgothic.ttc"),    // MS ゴシック (TTC)
+    path.join(windir, "Fonts", "BIZ-UDGothicR.ttc"),
+  ];
+  for (const fontPath of candidates) {
+    if (!fs.existsSync(fontPath)) continue;
+    try {
+      const bytes = fs.readFileSync(fontPath);
+      const font = await pdfDoc.embedFont(bytes, { subset: true });
+      console.log("Japanese font embedded:", path.basename(fontPath));
+      return font;
+    } catch (e) {
+      console.warn("Font embed failed:", path.basename(fontPath), e.message);
+    }
+  }
+  console.warn("No Japanese font found, falling back to Helvetica");
+  return await pdfDoc.embedFont(StandardFonts.Helvetica);
+}
 
 const stampDir = "static/img/stamp";
 // パッケージ化後も書き込めるよう、stampFolderはメインプロセスから取得する
@@ -55,8 +88,11 @@ let stampMeta = {}; // { "filename.png": { naturalWidth: 100, naturalHeight: 50 
 // ビジュアル個別押印の状態
 let currentVisualIndex = 0;
 // 各ファイルに対する配置スタンプ情報。構造: [ { fileIndex: 0, stamps: [ { stampFile: 'xxx.png', x: 100, y: 200, px: 50, py: 100 } ] } ]
-let visualStampsSettings = []; 
+let visualStampsSettings = [];
 let lastVisualStamps = []; // 直前に配置決定したスタンプ情報のキャッシュ
+let lastDateTexts = []; // 直前に配置決定した日付テキスト情報のキャッシュ
+let lastDateRows = []; // 直前に配置決定した日付行情報のキャッシュ
+let _renderVisualToken = null; // renderVisualStep の多重実行防止トークン
 let lastPdfOrientation = null; // 直前のPDFの向き（'portrait' または 'landscape'）
 let lastPdfPtWidth = 0;  // 直前のPDFのpt幅（相対位置変換に使用）
 let lastPdfPtHeight = 0; // 直前のPDFのpt高さ（相対位置変換に使用）
@@ -297,7 +333,7 @@ function renderMasterView() {
     doc.rules.forEach((rule, ruleIdx) => {
       const row = document.createElement("div");
       row.className = "pair-row";
-      
+
       // 印影画像選択肢の生成
       let stampOptionsHtml = '<option value="">-- 印影未設定 --</option>';
       stampImages.forEach(img => {
@@ -531,7 +567,7 @@ function registerMasterEvents() {
     btn.addEventListener("click", () => {
       const docIdx = parseInt(btn.getAttribute("data-doc"));
       const card = masterDocTypeContainer.children[docIdx];
-      
+
       const names = card.querySelectorAll(".rule-name");
       const stamps = card.querySelectorAll(".rule-stamp");
       const xs = card.querySelectorAll(".rule-x");
@@ -861,10 +897,14 @@ function initVisualMode() {
   currentVisualIndex = 0;
   visualStampsSettings = loadedPdfFiles.map((f, idx) => ({
     fileIndex: idx,
-    stamps: []
+    stamps: [],
+    dateTexts: [],
+    dateRows: []
   }));
   // 初回起動時は引き継ぎキャッシュをクリア
   lastVisualStamps = [];
+  lastDateTexts = [];
+  lastDateRows = [];
   lastPdfOrientation = null;
   lastPdfPtWidth = 0;
   lastPdfPtHeight = 0;
@@ -898,12 +938,16 @@ function initVisualMode() {
 async function renderPdfToCanvas(file) {
   const canvas = document.getElementById("pdfPreviewCanvas");
   const ctx = canvas.getContext("2d");
-  
+
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pdf = await pdfjsLib.getDocument({
+      data: arrayBuffer,
+      cMapUrl: CMAP_URL,
+      cMapPacked: true,
+    }).promise;
     const page = await pdf.getPage(1);
-    
+
     const viewport = page.getViewport({ scale: 1.0 });
     const ptWidth = viewport.width;
     const ptHeight = viewport.height;
@@ -936,10 +980,10 @@ async function renderPdfToCanvas(file) {
     // Canvas をプレビューエリアと同じサイズにスケールして描画
     const scale = containerWidth / ptWidth;
     const scaledViewport = page.getViewport({ scale: scale });
-    
+
     canvas.width = scaledViewport.width;
     canvas.height = scaledViewport.height;
-    
+
     const renderContext = {
       canvasContext: ctx,
       viewport: scaledViewport
@@ -958,6 +1002,10 @@ async function renderPdfToCanvas(file) {
 async function renderVisualStep() {
   if (loadedPdfFiles.length === 0) return;
 
+  // 多重実行防止：各呼び出しにユニークなトークンを割り当て
+  const myToken = Symbol("renderVisualStep");
+  _renderVisualToken = myToken;
+
   const currentItem = loadedPdfFiles[currentVisualIndex];
   visualProgress.textContent = `PDF ${currentVisualIndex + 1} / ${loadedPdfFiles.length}`;
 
@@ -966,12 +1014,16 @@ async function renderVisualStep() {
     visualFileNameInput.value = currentItem.customName;
   }
 
-  // プレビューエリアの初期化
-  const stamps = visualPreviewArea.querySelectorAll(".draggable-stamp");
-  stamps.forEach(s => s.remove());
+  // プレビューエリアの全オーバーレイ要素を一括削除
+  visualPreviewArea.querySelectorAll(
+    ".draggable-stamp, .draggable-date-text, .draggable-date-row, .date-edit-popup"
+  ).forEach(el => el.remove());
 
   // PDF.jsで実際のPDFを描画する（完了を待ってから座標計算や配置を行う）
   await renderPdfToCanvas(currentItem.file);
+
+  // 非同期処理中に別のrenderVisualStepが開始されていた場合はキャンセル
+  if (_renderVisualToken !== myToken) return;
 
   // 前へボタンの有効・無効
   visualPrevBtn.disabled = currentVisualIndex === 0;
@@ -1006,6 +1058,28 @@ async function renderVisualStep() {
     }));
   }
 
+  // 未配置かつ直前の日付テキストがあれば引き継ぐ
+  if ((!savedSettings.dateTexts || savedSettings.dateTexts.length === 0) && lastDateTexts.length > 0) {
+    const prevW = lastPdfPtWidth || A4_WIDTH_PT;
+    const prevH = lastPdfPtHeight || A4_HEIGHT_PT;
+    savedSettings.dateTexts = lastDateTexts.map(last => ({
+      ...last,
+      pdfX: Math.round((last.pdfX / prevW) * ptWidth),
+      pdfY: Math.round((last.pdfY / prevH) * ptHeight),
+    }));
+  }
+
+  // 未配置かつ直前の日付行があれば引き継ぐ
+  if ((!savedSettings.dateRows || savedSettings.dateRows.length === 0) && lastDateRows.length > 0) {
+    const prevW = lastPdfPtWidth || A4_WIDTH_PT;
+    const prevH = lastPdfPtHeight || A4_HEIGHT_PT;
+    savedSettings.dateRows = lastDateRows.map(last => ({
+      ...last,
+      pdfX: Math.round((last.pdfX / prevW) * ptWidth),
+      pdfY: Math.round((last.pdfY / prevH) * ptHeight),
+    }));
+  }
+
   // 保存済みのスタンプがあれば再現（サイズも復元）
   savedSettings.stamps.forEach(saved => {
     // PDF pt → プレビュー px に逆変換してサイズを復元
@@ -1015,6 +1089,30 @@ async function renderVisualStep() {
     const px = (saved.pdfX / ptWidth) * currentPreviewWidth;
     const py = currentPreviewHeight - ((saved.pdfY / ptHeight) * currentPreviewHeight) - restoreH;
     createVisualStampElement(saved.stampFile, px, py, previewStampW, previewStampH);
+  });
+
+  // 保存済みの日付テキストがあれば再現
+  (savedSettings.dateTexts || []).forEach(saved => {
+    const scale = currentPreviewWidth / ptWidth;
+    const displayFontSizePx = Math.max(8, Math.round(saved.fontSizePt * scale));
+    const approxElH = displayFontSizePx + 8;
+    // pdfX はテキスト開始位置なので、要素の left = pdfX変換値 - border(1) - padding(4)
+    const textPx = (saved.pdfX / ptWidth) * currentPreviewWidth;
+    const elPx = Math.max(0, textPx - 5);
+    const py = currentPreviewHeight - (saved.pdfY / ptHeight) * currentPreviewHeight - approxElH;
+    createDateTextElement(saved.text, elPx, py, saved.fontSizePt);
+  });
+
+  // 保存済みの日付行があれば再現
+  (savedSettings.dateRows || []).forEach(saved => {
+    const scale = currentPreviewWidth / ptWidth;
+    const displayFontSizePx = Math.max(8, Math.round(saved.fontSizePt * scale));
+    const approxElH = displayFontSizePx + 8;
+    const gap1Px = Math.round((saved.gap1Pt / ptWidth) * currentPreviewWidth);
+    const gap2Px = Math.round((saved.gap2Pt / ptWidth) * currentPreviewWidth);
+    const px = (saved.pdfX / ptWidth) * currentPreviewWidth;
+    const py = currentPreviewHeight - (saved.pdfY / ptHeight) * currentPreviewHeight - approxElH;
+    createDateRowElement(saved.year, saved.month, saved.day, saved.fontSizePt, gap1Px, gap2Px, px, py);
   });
 }
 
@@ -1179,7 +1277,7 @@ function updateVisualCoordinates(px, py, width, height) {
   const setting = visualStampsSettings[currentVisualIndex];
   const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
   const ptHeight = (setting && setting.ptHeight) ? setting.ptHeight : A4_HEIGHT_PT;
-  
+
   const _coordRect = visualPreviewArea.getBoundingClientRect();
   const currentPreviewWidth = (_coordRect.width || PREVIEW_WIDTH_PX);
   const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _coordRect.height || PREVIEW_HEIGHT_PX);
@@ -1196,11 +1294,11 @@ function updateVisualCoordinates(px, py, width, height) {
 function saveCurrentVisualStamps() {
   const savedList = [];
   const stampEls = visualPreviewArea.querySelectorAll(".draggable-stamp");
-  
+
   const setting = visualStampsSettings[currentVisualIndex];
   const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
   const ptHeight = (setting && setting.ptHeight) ? setting.ptHeight : A4_HEIGHT_PT;
-  
+
   const _saveRect = visualPreviewArea.getBoundingClientRect();
   const currentPreviewWidth = (_saveRect.width || PREVIEW_WIDTH_PX);
   const currentPreviewHeight = (parseFloat(visualPreviewArea.style.height) || _saveRect.height || PREVIEW_HEIGHT_PX);
@@ -1234,6 +1332,452 @@ function saveCurrentVisualStamps() {
   }
 }
 
+// 現在のプレビュー上の全日付テキスト座標をメモリに保存
+function saveDateTexts() {
+  const savedList = [];
+  const dateEls = visualPreviewArea.querySelectorAll(".draggable-date-text");
+
+  const setting = visualStampsSettings[currentVisualIndex];
+  const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
+  const ptHeight = (setting && setting.ptHeight) ? setting.ptHeight : A4_HEIGHT_PT;
+
+  const areaRect = visualPreviewArea.getBoundingClientRect();
+  const currentPreviewWidth = areaRect.width || PREVIEW_WIDTH_PX;
+  const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || areaRect.height || PREVIEW_HEIGHT_PX;
+
+  dateEls.forEach(el => {
+    const px = parseFloat(el.style.left) || 0;
+    const py = parseFloat(el.style.top) || 0;
+    const text = el.dataset.text;
+    const fontSizePt = parseFloat(el.dataset.fontSizePt) || 9;
+
+    // X: 要素left + border-left(1px) + padding-left(4px) = テキスト表示開始位置
+    const pdfX = Math.round(((px + 5) / currentPreviewWidth) * ptWidth);
+
+    // Y: getBoundingClientRect でベースラインを測定、取得不可ならフォールバック
+    const contentSpan = el.querySelector(".date-content");
+    let pdfY;
+    if (contentSpan && areaRect.width > 0) {
+      const spanRect = contentSpan.getBoundingClientRect();
+      const baseline = spanRect.bottom - areaRect.top - spanRect.height * 0.2;
+      pdfY = Math.round(((currentPreviewHeight - baseline) / currentPreviewHeight) * ptHeight);
+    } else {
+      const elH = el.offsetHeight;
+      pdfY = Math.round(((currentPreviewHeight - py - elH * 0.85) / currentPreviewHeight) * ptHeight);
+    }
+
+    savedList.push({ text, fontSizePt, px, py, pdfX, pdfY });
+  });
+
+  if (visualStampsSettings[currentVisualIndex]) {
+    visualStampsSettings[currentVisualIndex].dateTexts = savedList;
+  }
+}
+
+// 現在のプレビュー上の全日付行をメモリに保存
+function saveDateRows() {
+  const savedList = [];
+  const rowEls = visualPreviewArea.querySelectorAll(".draggable-date-row");
+
+  const setting = visualStampsSettings[currentVisualIndex];
+  const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
+  const ptHeight = (setting && setting.ptHeight) ? setting.ptHeight : A4_HEIGHT_PT;
+  const areaRect = visualPreviewArea.getBoundingClientRect();
+  const currentPreviewWidth = areaRect.width || PREVIEW_WIDTH_PX;
+  const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || areaRect.height || PREVIEW_HEIGHT_PX;
+
+  rowEls.forEach(el => {
+    const px = parseFloat(el.style.left) || 0;
+    const py = parseFloat(el.style.top) || 0;
+    const year = el.dataset.year;
+    const month = el.dataset.month;
+    const day = el.dataset.day;
+    const fontSizePt = parseFloat(el.dataset.fontSizePt) || 8;
+    const gap1Px = parseFloat(el.dataset.gap1Px) || 20;
+    const gap2Px = parseFloat(el.dataset.gap2Px) || 20;
+
+    // 年スパンの実際の描画位置をDOMから取得（paddingのズレを解消）
+    const yearSpan = el.querySelector(".date-row-num");
+    let pdfX, pdfY;
+    if (yearSpan && areaRect.width > 0) {
+      const spanRect = yearSpan.getBoundingClientRect();
+      const actualX = spanRect.left - areaRect.left;
+      // ベースライン ≈ spanの下端から上に約20%の位置
+      const baseline = spanRect.bottom - areaRect.top - spanRect.height * 0.2;
+      pdfX = Math.round((actualX / currentPreviewWidth) * ptWidth);
+      pdfY = Math.round(((currentPreviewHeight - baseline) / currentPreviewHeight) * ptHeight);
+    } else {
+      // フォールバック（要素位置から推定）
+      const elH = el.offsetHeight;
+      pdfX = Math.round((px / currentPreviewWidth) * ptWidth);
+      pdfY = Math.round(((currentPreviewHeight - py - elH * 0.85) / currentPreviewHeight) * ptHeight);
+    }
+
+    const gap1Pt = Math.round((gap1Px / currentPreviewWidth) * ptWidth);
+    const gap2Pt = Math.round((gap2Px / currentPreviewWidth) * ptWidth);
+
+    savedList.push({ year, month, day, fontSizePt, gap1Pt, gap2Pt, gap1Px, gap2Px, px, py, pdfX, pdfY });
+  });
+
+  if (visualStampsSettings[currentVisualIndex]) {
+    visualStampsSettings[currentVisualIndex].dateRows = savedList;
+  }
+}
+
+// プレビュー上に日付行要素（年・月・日を一行で）を生成する
+function createDateRowElement(year, month, day, fontSizePt = 8, gap1Px = 24, gap2Px = 24, startX = null, startY = null) {
+  const el = document.createElement("div");
+  el.className = "draggable-date-row";
+  el.dataset.year = year;
+  el.dataset.month = month;
+  el.dataset.day = day;
+  el.dataset.fontSizePt = fontSizePt;
+  el.dataset.gap1Px = gap1Px;
+  el.dataset.gap2Px = gap2Px;
+
+  const setting = visualStampsSettings[currentVisualIndex];
+  const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
+  const _rect = visualPreviewArea.getBoundingClientRect();
+  const currentPreviewWidth = _rect.width || PREVIEW_WIDTH_PX;
+  const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || _rect.height || PREVIEW_HEIGHT_PX;
+  const scale = currentPreviewWidth / ptWidth;
+  const displayFontSize = Math.max(8, Math.round(fontSizePt * scale));
+
+  el.style.fontSize = displayFontSize + "px";
+
+  // 年スパン
+  const yearSpan = makeEditableNumSpan(year, "year", el, displayFontSize);
+  el.appendChild(yearSpan);
+
+  // 間隔ハンドル1
+  const gap1Handle = makeGapHandle(el, "gap1Px", gap1Px);
+  el.appendChild(gap1Handle);
+
+  // 月スパン
+  const monthSpan = makeEditableNumSpan(month, "month", el, displayFontSize);
+  el.appendChild(monthSpan);
+
+  // 間隔ハンドル2
+  const gap2Handle = makeGapHandle(el, "gap2Px", gap2Px);
+  el.appendChild(gap2Handle);
+
+  // 日スパン
+  const daySpan = makeEditableNumSpan(day, "day", el, displayFontSize);
+  el.appendChild(daySpan);
+
+  // 削除バッジ
+  const deleteBadge = document.createElement("button");
+  deleteBadge.className = "date-text-delete-badge";
+  deleteBadge.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+  deleteBadge.title = "この日付行を削除";
+  deleteBadge.addEventListener("mousedown", e => e.stopPropagation());
+  deleteBadge.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    el.remove();
+    saveDateRows();
+  });
+  el.appendChild(deleteBadge);
+
+  if (startX === null) startX = (currentPreviewWidth - 120) / 2;
+  if (startY === null) startY = (currentPreviewHeight - displayFontSize) / 2;
+  el.style.left = startX + "px";
+  el.style.top = startY + "px";
+
+  // 要素全体のドラッグ（ギャップハンドル・削除バッジ以外から開始）
+  el._isDragging = false;
+  el._dragOffsetX = 0;
+  el._dragOffsetY = 0;
+
+  const startRowDrag = (e) => {
+    el._isDragging = true;
+    const elRect = el.getBoundingClientRect();
+    el._dragOffsetX = e.clientX - elRect.left;
+    el._dragOffsetY = e.clientY - elRect.top;
+    el.style.zIndex = 1000;
+    e.preventDefault();
+  };
+
+  el.addEventListener("mousedown", e => {
+    if (e.target.classList.contains("date-row-gap-handle") || deleteBadge.contains(e.target)) return;
+    startRowDrag(e);
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (!el._isDragging) return;
+    const areaRect = visualPreviewArea.getBoundingClientRect();
+    let x = e.clientX - areaRect.left - el._dragOffsetX;
+    let y = e.clientY - areaRect.top - el._dragOffsetY;
+    const areaW = areaRect.width || PREVIEW_WIDTH_PX;
+    const areaH = parseFloat(visualPreviewArea.style.height) || areaRect.height || PREVIEW_HEIGHT_PX;
+    x = Math.max(0, Math.min(x, areaW - el.offsetWidth));
+    y = Math.max(0, Math.min(y, areaH - el.offsetHeight));
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (el._isDragging) {
+      el._isDragging = false;
+      el.style.zIndex = "";
+      saveDateRows();
+    }
+  });
+
+  visualPreviewArea.appendChild(el);
+  saveDateRows();
+}
+
+// 日付行の編集可能な数字スパンを作成
+function makeEditableNumSpan(value, partName, parentEl, displayFontSize) {
+  const span = document.createElement("span");
+  span.className = "date-row-num";
+  span.dataset.part = partName;
+  span.textContent = value;
+
+  // 数字スパン上でもドラッグで親要素を移動できるよう、親要素のドラッグ状態を直接セット
+  span.addEventListener("mousedown", e => {
+    const elRect = parentEl.getBoundingClientRect();
+    parentEl._dragOffsetX = e.clientX - elRect.left;
+    parentEl._dragOffsetY = e.clientY - elRect.top;
+    parentEl._isDragging = true;
+    parentEl.style.zIndex = 1000;
+    e.preventDefault();
+  });
+
+  // ダブルクリックで数値を編集
+  span.addEventListener("dblclick", e => {
+    e.stopPropagation();
+    const currentVal = parentEl.dataset[partName];
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = currentVal;
+    input.style.cssText = `font-size:${displayFontSize}px; border:none; outline:1px solid #7c3aed; outline-offset:1px; background:rgba(245,243,255,0.95); width:${Math.max(30, span.offsetWidth + 10)}px; color:#000; font-family:'Inter',sans-serif; text-align:center; border-radius:2px;`;
+    span.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const commit = () => {
+      const newVal = input.value.trim() || currentVal;
+      parentEl.dataset[partName] = newVal;
+      span.textContent = newVal;
+      input.replaceWith(span);
+      saveDateRows();
+    };
+
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", ev => {
+      ev.stopPropagation();
+      if (ev.key === "Enter") { ev.preventDefault(); commit(); }
+      if (ev.key === "Escape") { input.value = currentVal; commit(); }
+    });
+  });
+
+  return span;
+}
+
+// 日付行の間隔調整ハンドルを作成（左右ドラッグで間隔を変更）
+function makeGapHandle(parentEl, dataKey, initialWidthPx) {
+  const handle = document.createElement("div");
+  handle.className = "date-row-gap-handle";
+  handle.style.width = Math.max(8, initialWidthPx) + "px";
+  handle.title = "ドラッグして間隔を調整";
+
+  let isResizing = false;
+  let startMouseX = 0;
+  let startWidth = 0;
+
+  handle.addEventListener("mousedown", e => {
+    e.stopPropagation();
+    e.preventDefault();
+    isResizing = true;
+    startMouseX = e.clientX;
+    startWidth = handle.offsetWidth;
+    document.body.style.cursor = "ew-resize";
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (!isResizing) return;
+    const dx = e.clientX - startMouseX;
+    const newWidth = Math.max(4, startWidth + dx);
+    handle.style.width = newWidth + "px";
+    parentEl.dataset[dataKey] = newWidth;
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (isResizing) {
+      isResizing = false;
+      document.body.style.cursor = "";
+      saveDateRows();
+    }
+  });
+
+  return handle;
+}
+
+// プレビュー上に日付テキスト要素を生成する
+function createDateTextElement(text, startX = null, startY = null, fontSizePt = 12) {
+  const el = document.createElement("div");
+  el.className = "draggable-date-text";
+  el.dataset.text = text;
+  el.dataset.fontSizePt = fontSizePt;
+
+  const setting = visualStampsSettings[currentVisualIndex];
+  const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
+  const _rect = visualPreviewArea.getBoundingClientRect();
+  const currentPreviewWidth = _rect.width || PREVIEW_WIDTH_PX;
+  const currentPreviewHeight = parseFloat(visualPreviewArea.style.height) || _rect.height || PREVIEW_HEIGHT_PX;
+  const scale = currentPreviewWidth / ptWidth;
+  const displayFontSize = Math.max(8, Math.round(fontSizePt * scale));
+
+  const contentSpan = document.createElement("span");
+  contentSpan.className = "date-content";
+  contentSpan.textContent = text;
+  contentSpan.style.fontSize = displayFontSize + "px";
+  el.appendChild(contentSpan);
+
+  const deleteBadge = document.createElement("button");
+  deleteBadge.className = "date-text-delete-badge";
+  deleteBadge.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+  deleteBadge.title = "このテキストを削除";
+  deleteBadge.addEventListener("mousedown", e => e.stopPropagation());
+  deleteBadge.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    el.remove();
+    saveDateTexts();
+  });
+  el.appendChild(deleteBadge);
+
+  if (startX === null) startX = (currentPreviewWidth - 50) / 2;
+  if (startY === null) startY = (currentPreviewHeight - displayFontSize) / 2;
+
+  el.style.left = startX + "px";
+  el.style.top = startY + "px";
+
+  let isDragging = false;
+  let offsetX = 0, offsetY = 0;
+
+  el.addEventListener("mousedown", e => {
+    if (deleteBadge.contains(e.target)) return;
+    isDragging = true;
+    const elRect = el.getBoundingClientRect();
+    offsetX = e.clientX - elRect.left;
+    offsetY = e.clientY - elRect.top;
+    el.style.zIndex = 1000;
+    e.preventDefault();
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (!isDragging) return;
+    const areaRect = visualPreviewArea.getBoundingClientRect();
+    let x = e.clientX - areaRect.left - offsetX;
+    let y = e.clientY - areaRect.top - offsetY;
+    const areaW = areaRect.width || PREVIEW_WIDTH_PX;
+    const areaH = parseFloat(visualPreviewArea.style.height) || areaRect.height || PREVIEW_HEIGHT_PX;
+    x = Math.max(0, Math.min(x, areaW - el.offsetWidth));
+    y = Math.max(0, Math.min(y, areaH - el.offsetHeight));
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (isDragging) {
+      isDragging = false;
+      el.style.zIndex = "";
+      saveDateTexts();
+    }
+  });
+
+  // ダブルクリックでテキスト・フォントサイズ編集ポップアップ
+  el.addEventListener("dblclick", e => {
+    e.stopPropagation();
+    // 既存のポップアップを削除
+    visualPreviewArea.querySelectorAll(".date-edit-popup").forEach(p => p.remove());
+
+    const currentText = el.dataset.text;
+    const currentFontSizePt = parseFloat(el.dataset.fontSizePt) || 8;
+
+    const popup = document.createElement("div");
+    popup.className = "date-edit-popup";
+    const elLeft = parseFloat(el.style.left) || 0;
+    const elTop = parseFloat(el.style.top) || 0;
+    const previewH = parseFloat(visualPreviewArea.style.height) || visualPreviewArea.getBoundingClientRect().height || PREVIEW_HEIGHT_PX;
+    const popupTop = elTop + el.offsetHeight + 4;
+    popup.style.cssText = `position:absolute; top:${Math.min(popupTop, previewH - 120)}px; left:${elLeft}px; background:#fff; border:1px solid #7c3aed; border-radius:6px; padding:8px; z-index:2000; display:flex; flex-direction:column; gap:6px; box-shadow:0 4px 12px rgba(0,0,0,0.15); min-width:170px;`;
+
+    const textInput = document.createElement("input");
+    textInput.type = "text";
+    textInput.value = currentText;
+    textInput.placeholder = "テキスト";
+    textInput.style.cssText = "border:1px solid #cbd5e1; border-radius:3px; padding:3px 6px; font-size:12px; width:100%; outline:none;";
+    popup.appendChild(textInput);
+
+    const sizeRow = document.createElement("div");
+    sizeRow.style.cssText = "display:flex; align-items:center; gap:4px;";
+    const sizeLabel = document.createElement("label");
+    sizeLabel.textContent = "サイズ:";
+    sizeLabel.style.cssText = "font-size:11px; color:#64748b; white-space:nowrap;";
+    const sizeInput = document.createElement("input");
+    sizeInput.type = "number";
+    sizeInput.value = currentFontSizePt;
+    sizeInput.min = 6;
+    sizeInput.max = 72;
+    sizeInput.style.cssText = "border:1px solid #cbd5e1; border-radius:3px; padding:3px 4px; font-size:12px; width:52px; outline:none;";
+    const ptLabel = document.createElement("span");
+    ptLabel.textContent = "pt";
+    ptLabel.style.cssText = "font-size:11px; color:#64748b;";
+    sizeRow.appendChild(sizeLabel);
+    sizeRow.appendChild(sizeInput);
+    sizeRow.appendChild(ptLabel);
+    popup.appendChild(sizeRow);
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.textContent = "✓ 確定";
+    confirmBtn.style.cssText = "background:#7c3aed; color:#fff; border:none; border-radius:3px; padding:4px 8px; font-size:11px; cursor:pointer; font-weight:600;";
+    popup.appendChild(confirmBtn);
+
+    const commitEdit = () => {
+      const newText = textInput.value.trim() || currentText;
+      const newFontSizePt = Math.max(6, parseFloat(sizeInput.value) || currentFontSizePt);
+      el.dataset.text = newText;
+      el.dataset.fontSizePt = newFontSizePt;
+      contentSpan.textContent = newText;
+
+      const _s = visualStampsSettings[currentVisualIndex];
+      const _ptW = (_s && _s.ptWidth) ? _s.ptWidth : A4_WIDTH_PT;
+      const _pW = visualPreviewArea.getBoundingClientRect().width || PREVIEW_WIDTH_PX;
+      const newDisplaySize = Math.max(8, Math.round(newFontSizePt * (_pW / _ptW)));
+      contentSpan.style.fontSize = newDisplaySize + "px";
+
+      popup.remove();
+      saveDateTexts();
+    };
+
+    confirmBtn.addEventListener("click", ev => { ev.stopPropagation(); commitEdit(); });
+    popup.addEventListener("keydown", ev => {
+      ev.stopPropagation();
+      if (ev.key === "Enter") { ev.preventDefault(); commitEdit(); }
+      if (ev.key === "Escape") { popup.remove(); }
+    });
+
+    const closeHandler = ev => {
+      if (!popup.contains(ev.target) && ev.target !== el && !el.contains(ev.target)) {
+        popup.remove();
+        document.removeEventListener("mousedown", closeHandler);
+      }
+    };
+    setTimeout(() => document.addEventListener("mousedown", closeHandler), 100);
+
+    visualPreviewArea.appendChild(popup);
+    textInput.focus();
+    textInput.select();
+  });
+
+  visualPreviewArea.appendChild(el);
+  saveDateTexts();
+}
+
 // スタンプ追加ボタン
 addVisualStampBtn.addEventListener("click", () => {
   const selectedStamp = visualStampSelect.value;
@@ -1260,6 +1804,8 @@ visualNextBtn.addEventListener("click", async () => {
     width: s.width,
     height: s.height
   }));
+  lastDateTexts = (savedSettings.dateTexts || []).map(d => ({ ...d }));
+  lastDateRows = (savedSettings.dateRows || []).map(d => ({ ...d }));
   lastPdfOrientation = ptWidth > ptHeight ? 'landscape' : 'portrait';
   lastPdfPtWidth = ptWidth;
   lastPdfPtHeight = ptHeight;
@@ -1303,6 +1849,18 @@ async function processPdfOutput(mode = "normal") {
           y: s.pdfY,
           width: s.width,
           height: s.height
+        })),
+        dateTexts: (setting.dateTexts || []).map(d => ({
+          text: d.text,
+          x: d.pdfX,
+          y: d.pdfY,
+          fontSize: d.fontSizePt
+        })),
+        dateRows: (setting.dateRows || []).map(d => ({
+          year: d.year, month: d.month, day: d.day,
+          x: d.pdfX, y: d.pdfY,
+          fontSize: d.fontSizePt,
+          gap1Pt: d.gap1Pt, gap2Pt: d.gap2Pt
         }))
       });
     });
@@ -1325,7 +1883,9 @@ async function processPdfOutput(mode = "normal") {
         stamps: doc.rules.map(r => {
           const dims = getStampDimensions(r.stamp);
           return { stampFile: r.stamp, x: r.x, y: r.y, width: dims.pdfWidth, height: dims.pdfHeight };
-        })
+        }),
+        dateTexts: [],
+        dateRows: []
       });
     }
   } else {
@@ -1345,7 +1905,8 @@ async function processPdfOutput(mode = "normal") {
         stamps: doc.rules.map(r => {
           const dims = getStampDimensions(r.stamp);
           return { stampFile: r.stamp, x: r.x, y: r.y, width: dims.pdfWidth, height: dims.pdfHeight };
-        })
+        }),
+        dateTexts: []
       });
     });
   }
@@ -1370,7 +1931,7 @@ async function processPdfOutput(mode = "normal") {
       fs.mkdirSync(outputFolderPath);
     }
 
-    for (const { file, customName, stamps } of processList) {
+    for (const { file, customName, stamps, dateTexts, dateRows } of processList) {
       const pdfBytes = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const page = pdfDoc.getPages()[0];
@@ -1382,7 +1943,7 @@ async function processPdfOutput(mode = "normal") {
         if (fs.existsSync(stampPath)) {
           const stampBytes = fs.readFileSync(stampPath);
           const ext = stampInfo.stampFile.split(".").pop().toLowerCase();
-          
+
           let image;
           if (ext === "jpg" || ext === "jpeg") {
             image = await pdfDoc.embedJpg(stampBytes);
@@ -1396,6 +1957,47 @@ async function processPdfOutput(mode = "normal") {
             width: stampInfo.width,
             height: stampInfo.height,
           });
+        }
+      }
+
+      // 日付テキスト・日付行の描画（日本語フォント対応）
+      const hasDateContent = (dateTexts && dateTexts.length > 0) || (dateRows && dateRows.length > 0);
+      if (hasDateContent) {
+        const jpFont = await embedJapaneseFont(pdfDoc);
+
+        // 任意テキストの描画
+        for (const dt of (dateTexts || [])) {
+          if (!dt.text) continue;
+          try {
+            page.drawText(dt.text, {
+              x: dt.x,
+              y: dt.y,
+              size: dt.fontSize,
+              font: jpFont,
+              color: rgb(0, 0, 0),
+            });
+          } catch (e) {
+            console.warn("テキスト描画スキップ:", dt.text, e.message);
+          }
+        }
+
+        // 日付行（年・月・日）の描画
+        for (const dr of (dateRows || [])) {
+          try {
+            const fontSize = dr.fontSize;
+            // 年を描画
+            page.drawText(String(dr.year), { x: dr.x, y: dr.y, size: fontSize, font: jpFont, color: rgb(0, 0, 0) });
+            // 月を描画（年のテキスト幅 + gap1Pt 分右に）
+            const yearW = jpFont.widthOfTextAtSize(String(dr.year), fontSize);
+            const monthX = dr.x + yearW + dr.gap1Pt;
+            page.drawText(String(dr.month), { x: monthX, y: dr.y, size: fontSize, font: jpFont, color: rgb(0, 0, 0) });
+            // 日を描画（月のテキスト幅 + gap2Pt 分右に）
+            const monthW = jpFont.widthOfTextAtSize(String(dr.month), fontSize);
+            const dayX = monthX + monthW + dr.gap2Pt;
+            page.drawText(String(dr.day), { x: dayX, y: dr.y, size: fontSize, font: jpFont, color: rgb(0, 0, 0) });
+          } catch (e) {
+            console.warn("日付行描画スキップ:", dr, e.message);
+          }
         }
       }
 
@@ -1430,6 +2032,13 @@ async function processPdfOutput(mode = "normal") {
 stampPdfBtn.addEventListener("click", () => processPdfOutput("normal"));
 
 
+// F12キーでDevToolsを開く（デバッグ用）
+document.addEventListener("keydown", (e) => {
+  if (e.key === "F12") {
+    ipcRenderer.send("open-devtools");
+  }
+});
+
 // --- アプリケーション起動時の初期処理 ---
 window.addEventListener("DOMContentLoaded", async () => {
   // まず書き込み可能な印影フォルダパスを取得してから初期化
@@ -1463,9 +2072,68 @@ window.addEventListener("DOMContentLoaded", async () => {
     loadedPdfFiles = [];
     displayFiles();
   });
-  
+
   // 座標測定モーダル制御のイベント登録
   initMeasureModalEvents();
+
+  // 日付テキスト入力欄の初期値を今日の日付に設定
+  const _today = new Date();
+  document.getElementById("dateYearInput").value = _today.getFullYear();
+  document.getElementById("dateMonthInput").value = _today.getMonth() + 1;
+  document.getElementById("dateDayInput").value = _today.getDate();
+
+  // フォントサイズの保存・復元（localStorage）
+  const _fontSizeEl = document.getElementById("dateFontSizePt");
+  const _savedFontSize = localStorage.getItem("date_font_size_pt");
+  if (_savedFontSize !== null) _fontSizeEl.value = _savedFontSize;
+  _fontSizeEl.addEventListener("change", () => {
+    localStorage.setItem("date_font_size_pt", _fontSizeEl.value);
+  });
+
+  // 日付テキスト追加ボタンのイベント登録
+  document.getElementById("addDateYearBtn").addEventListener("click", () => {
+    if (loadedPdfFiles.length === 0) return;
+    const val = document.getElementById("dateYearInput").value.trim();
+    if (!val) return;
+    const fs = parseFloat(document.getElementById("dateFontSizePt").value) || 8;
+    createDateTextElement(val, null, null, fs);
+  });
+
+  document.getElementById("addDateMonthBtn").addEventListener("click", () => {
+    if (loadedPdfFiles.length === 0) return;
+    const val = document.getElementById("dateMonthInput").value.trim();
+    if (!val) return;
+    const fs = parseFloat(document.getElementById("dateFontSizePt").value) || 8;
+    createDateTextElement(val, null, null, fs);
+  });
+
+  document.getElementById("addDateDayBtn").addEventListener("click", () => {
+    if (loadedPdfFiles.length === 0) return;
+    const val = document.getElementById("dateDayInput").value.trim();
+    if (!val) return;
+    const fs = parseFloat(document.getElementById("dateFontSizePt").value) || 8;
+    createDateTextElement(val, null, null, fs);
+  });
+
+  document.getElementById("addDateCustomBtn").addEventListener("click", () => {
+    if (loadedPdfFiles.length === 0) return;
+    const val = document.getElementById("dateCustomInput").value.trim();
+    if (!val) return;
+    const fs = parseFloat(document.getElementById("dateFontSizePt").value) || 8;
+    createDateTextElement(val, null, null, fs);
+    document.getElementById("dateCustomInput").value = "";
+  });
+
+  document.getElementById("addDateRowBtn").addEventListener("click", () => {
+    if (loadedPdfFiles.length === 0) return;
+    const y = document.getElementById("dateYearInput").value.trim();
+    const m = document.getElementById("dateMonthInput").value.trim();
+    const d = document.getElementById("dateDayInput").value.trim();
+    if (!y && !m && !d) return;
+    const fs = parseFloat(document.getElementById("dateFontSizePt").value) || 8;
+    const defaultGap = 24; // px (デフォルトの間隔)
+    createDateRowElement(y || "　", m || "　", d || "　", fs, defaultGap, defaultGap);
+  });
 
   // ウィンドウリサイズ時にビジュアルモードのプレビューを再描画
   // document.body を observe するとプレビュー高さ変更でループするため
@@ -1608,10 +2276,10 @@ function initMeasureModalEvents() {
     // フォームに適用
     docTypes[activeMeasureDocIdx].rules[activeMeasureRuleIdx].x = xVal;
     docTypes[activeMeasureDocIdx].rules[activeMeasureRuleIdx].y = yVal;
-    
+
     localStorage.setItem("stamp_doc_types", JSON.stringify(docTypes));
     alert("座標をフォームに適用しました。保存ボタンを押して確定させてください。");
-    
+
     closeMeasureModal();
     renderMasterView();
   });
@@ -1632,9 +2300,22 @@ function calculateAndShowMeasureCoords(px, py, width, height) {
 async function loadMeasurePdf(file) {
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    // CMap付きでPDF読み込み（失敗した場合はCMapなしでリトライ）
+    let pdf;
+    try {
+      pdf = await pdfjsLib.getDocument({
+        data: arrayBuffer,
+        cMapUrl: CMAP_URL,
+        cMapPacked: true,
+      }).promise;
+    } catch (cmapErr) {
+      console.warn("CMap付きPDF読み込み失敗、CMapなしで再試行:", cmapErr);
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    }
+
     const page = await pdf.getPage(1);
-    
+
     const viewport = page.getViewport({ scale: 1.0 });
     measurePtWidth = viewport.width;
     measurePtHeight = viewport.height;
@@ -1648,13 +2329,18 @@ async function loadMeasurePdf(file) {
       currentPreviewHeight = PREVIEW_WIDTH_PX;
     }
 
+    // flex:1 (flex-basis:0%) がモーダルの縦flex内で height を無視するのを防ぐ
+    measurePreviewWrapper.style.flex = "none";
     measurePreviewWrapper.style.width = currentPreviewWidth + "px";
     measurePreviewWrapper.style.height = currentPreviewHeight + "px";
-    
+
+    // ラッパーを先に表示してからcanvas描画（照準のoffsetWidth/Height取得も正確になる）
+    measurePreviewWrapper.classList.remove("hidden");
+
     const canvasCtx = measurePdfCanvas.getContext("2d");
     const scale = Math.min(currentPreviewWidth / measurePtWidth, currentPreviewHeight / measurePtHeight);
     const scaledViewport = page.getViewport({ scale: scale });
-    
+
     measurePdfCanvas.width = scaledViewport.width;
     measurePdfCanvas.height = scaledViewport.height;
 
@@ -1664,15 +2350,14 @@ async function loadMeasurePdf(file) {
     };
     await page.render(renderContext).promise;
 
-    // 照準の初期位置を設定（中央）
-    const targetWidth = measureDraggable.offsetWidth;
-    const targetHeight = measureDraggable.offsetHeight;
+    // 照準の初期位置を設定（中央）※ラッパー表示後なのでoffsetWidthが正確に取れる
+    const targetWidth = measureDraggable.offsetWidth || 45;
+    const targetHeight = measureDraggable.offsetHeight || 45;
     const initX = (currentPreviewWidth - targetWidth) / 2;
     const initY = (currentPreviewHeight - targetHeight) / 2;
     measureDraggable.style.left = initX + "px";
     measureDraggable.style.top = initY + "px";
 
-    measurePreviewWrapper.classList.remove("hidden");
     measureResultFields.classList.remove("hidden");
     applyMeasureBtn.disabled = false;
 
@@ -1680,7 +2365,7 @@ async function loadMeasurePdf(file) {
 
   } catch (err) {
     console.error("テストPDF読み込みエラー: ", err);
-    alert("テストPDFの読み込みに失敗しました。");
+    alert("テストPDFの読み込みに失敗しました。\n" + err.message);
   }
 }
 
@@ -1691,7 +2376,7 @@ function showToast(message, type = "info", duration = 3000, action = null) {
 
   const toast = document.createElement("div");
   toast.className = `toast toast-${type}`;
-  
+
   let iconHtml = '<i class="fa-solid fa-circle-info"></i>';
   if (type === "success") {
     iconHtml = '<i class="fa-solid fa-circle-check"></i>';
