@@ -645,6 +645,14 @@ p.label-title {
   display: none !important;
 }
 
+/* 座標測定モーダルのプレビューラッパー:
+   modal-card-body が flex-direction:column なので、
+   preview-canvas-wrapper の flex:1 (flex-basis:0%) が主軸(縦)に効いてしまい
+   JS でセットした height を無視する。flex:none で無効化する。 */
+#measurePreviewWrapper {
+  flex: none;
+}
+
 .text-center {
   text-align: center;
 }
@@ -819,4 +827,157 @@ p.label-title {
 
 .toast-error i {
   color: var(--danger-color);
+}
+
+/* 日付テキスト追加パネル */
+.visual-date-panel {
+  background: #f0fdf4;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #a7f3d0;
+}
+
+.date-quick-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.date-part-input {
+  width: 66px !important;
+  height: 2em !important;
+  font-size: 0.78rem !important;
+  flex-shrink: 0;
+}
+
+.date-part-btn {
+  white-space: nowrap;
+  padding: 4px 8px !important;
+  font-size: 0.72rem !important;
+  width: auto !important;
+  height: 2em !important;
+  flex-shrink: 0;
+  background: #059669 !important;
+}
+
+.date-part-btn:hover:not(:disabled) {
+  background: #047857 !important;
+}
+
+/* プレビュー上の日付テキスト要素 */
+.draggable-date-text {
+  position: absolute;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px dashed #059669;
+  border-radius: 2px;
+  cursor: move;
+  display: flex;
+  align-items: center;
+  padding: 1px 4px;
+  white-space: nowrap;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.draggable-date-text.is-editing {
+  border-style: solid;
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.draggable-date-text .date-content {
+  display: block;
+  line-height: 1;
+  color: #000;
+  font-family: 'Inter', 'Noto Sans JP', sans-serif;
+  pointer-events: none;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.9), 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+/* 日付テキスト右上の削除バッジ */
+.date-text-delete-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 15px;
+  height: 15px;
+  background: var(--danger-color);
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 50%;
+  font-size: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: background var(--transition-speed);
+}
+
+.date-text-delete-badge:hover {
+  background: var(--danger-hover);
+}
+
+.date-text-delete-badge * {
+  color: #ffffff !important;
+}
+
+/* 日付行（年月日一体型）要素 */
+.draggable-date-row {
+  position: absolute;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px dashed #7c3aed;
+  border-radius: 2px;
+  cursor: move;
+  padding: 1px 4px;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  white-space: nowrap;
+}
+
+.draggable-date-row .date-row-num {
+  display: inline-block;
+  color: #000;
+  line-height: 1;
+  font-family: 'Inter', 'Noto Sans JP', sans-serif;
+  min-width: 1ch;
+  cursor: move;
+  border-bottom: 1px dotted #7c3aed;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.9), 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+/* 間隔調整ハンドル */
+.date-row-gap-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 8px;
+  align-self: stretch;
+  cursor: ew-resize;
+  color: #9f67ff;
+  font-size: 9px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.date-row-gap-handle::after {
+  content: '⟺';
+  font-size: 9px;
+  color: #a78bfa;
+  pointer-events: none;
+}
+
+/* テキスト編集ポップアップ */
+.date-edit-popup {
+  z-index: 2000;
+}
+
+.date-edit-popup input {
+  font-family: 'Inter', 'Noto Sans JP', sans-serif;
 }
