@@ -87,6 +87,8 @@ let stampMeta = {}; // { "filename.png": { naturalWidth: 100, naturalHeight: 50 
 
 // ビジュアル個別押印の状態
 let currentVisualIndex = 0;
+let currentZoom = 1.0; // PDFプレビューのズーム倍率（0.5〜3.0）
+let _zoomRenderTimer = null; // ホイールズーム用デバウンスタイマー
 // 各ファイルに対する配置スタンプ情報。構造: [ { fileIndex: 0, stamps: [ { stampFile: 'xxx.png', x: 100, y: 200, px: 50, py: 100 } ] } ]
 let visualStampsSettings = [];
 let lastVisualStamps = []; // 直前に配置決定したスタンプ情報のキャッシュ
@@ -895,6 +897,8 @@ function renderIndividualSettings() {
 // --- 3. 個別ビジュアル連続押印機能の実装 ---
 function initVisualMode() {
   currentVisualIndex = 0;
+  currentZoom = 1.0;
+  updateZoomDisplay();
   visualStampsSettings = loadedPdfFiles.map((f, idx) => ({
     fileIndex: idx,
     stamps: [],
@@ -958,23 +962,16 @@ async function renderPdfToCanvas(file) {
       visualStampsSettings[currentVisualIndex].ptHeight = ptHeight;
     }
 
-    // CSSで幅は制御するため、JS側では幅を上書きしない
-    // 実際の描画幅を getBoundingClientRect で読み取り、高さのみ計算して設定
-    // width を一旦リセットしてCSSに戻す
-    visualPreviewArea.style.width = "";
-    visualPreviewArea.style.height = "";
-    // レイアウトを確定させてから実幅を取得
-    const containerWidth = visualPreviewArea.getBoundingClientRect().width || PREVIEW_WIDTH_PX;
+    // スクロールラッパーの幅（ズーム前の自然幅）を基準にし、ズーム倍率を乗じて描画幅を決定
+    const scrollWrapper = document.getElementById("visualPreviewScrollWrapper");
+    const naturalWidth = scrollWrapper
+      ? (scrollWrapper.getBoundingClientRect().width || PREVIEW_WIDTH_PX)
+      : PREVIEW_WIDTH_PX;
+    const containerWidth = Math.max(100, Math.round(naturalWidth * currentZoom));
+    const previewHeight = Math.round(containerWidth * (ptHeight / ptWidth));
 
-    // アスペクト比に基づき高さのみ設定（幅はCSSに任せる）
-    let previewHeight;
-    if (ptWidth > ptHeight) {
-      // 横向き：幅×(縦/横)比で高さを計算
-      previewHeight = Math.round(containerWidth * (ptHeight / ptWidth));
-    } else {
-      // 縦向き：幅×A4比で高さを計算
-      previewHeight = Math.round(containerWidth * (ptHeight / ptWidth));
-    }
+    // プレビューエリアに明示的なサイズを設定（ズーム時はラッパーよりも大きくなりスクロール可能）
+    visualPreviewArea.style.width = containerWidth + "px";
     visualPreviewArea.style.height = previewHeight + "px";
 
     // Canvas をプレビューエリアと同じサイズにスケールして描画
@@ -2032,10 +2029,39 @@ async function processPdfOutput(mode = "normal") {
 stampPdfBtn.addEventListener("click", () => processPdfOutput("normal"));
 
 
+// ズームインジケーターを更新する
+function updateZoomDisplay() {
+  const el = document.getElementById("zoomIndicator");
+  if (el) el.textContent = Math.round(currentZoom * 100) + "%";
+}
+
+// ズームを変更してプレビューを即時再描画する
+function changeZoom(delta) {
+  if (sectionVisual.classList.contains("hidden") || loadedPdfFiles.length === 0) return;
+  currentZoom = Math.max(0.5, Math.min(3.0, Math.round((currentZoom + delta) * 10) / 10));
+  updateZoomDisplay();
+  renderVisualStep();
+}
+
+// ホイール操作用：短時間に連続して来るイベントをデバウンスしてから再描画する
+function changeZoomDebounced(delta) {
+  if (sectionVisual.classList.contains("hidden") || loadedPdfFiles.length === 0) return;
+  currentZoom = Math.max(0.5, Math.min(3.0, Math.round((currentZoom + delta) * 10) / 10));
+  updateZoomDisplay();
+  clearTimeout(_zoomRenderTimer);
+  _zoomRenderTimer = setTimeout(() => renderVisualStep(), 80);
+}
+
 // F12キーでDevToolsを開く（デバッグ用）
 document.addEventListener("keydown", (e) => {
   if (e.key === "F12") {
     ipcRenderer.send("open-devtools");
+    return;
+  }
+  // Ctrl+↑↓ でズームイン・ズームアウト
+  if (e.ctrlKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+    e.preventDefault();
+    changeZoom(e.key === "ArrowUp" ? 0.1 : -0.1);
   }
 });
 
@@ -2134,6 +2160,17 @@ window.addEventListener("DOMContentLoaded", async () => {
     const defaultGap = 24; // px (デフォルトの間隔)
     createDateRowElement(y || "　", m || "　", d || "　", fs, defaultGap, defaultGap);
   });
+
+  // Ctrl+ホイールでズームイン・ズームアウト（プレビューエリア上）
+  const _scrollWrapper = document.getElementById("visualPreviewScrollWrapper");
+  if (_scrollWrapper) {
+    _scrollWrapper.addEventListener("wheel", (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        changeZoomDebounced(e.deltaY < 0 ? 0.1 : -0.1);
+      }
+    }, { passive: false });
+  }
 
   // ウィンドウリサイズ時にビジュアルモードのプレビューを再描画
   // document.body を observe するとプレビュー高さ変更でループするため
