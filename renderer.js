@@ -125,6 +125,8 @@ let stampMeta = {}; // { "filename.png": { naturalWidth: 100, naturalHeight: 50 
 let currentVisualIndex = 0;
 let currentZoom = 1.0; // PDFプレビューのズーム倍率（0.5〜3.0）
 let _zoomRenderTimer = null; // ホイールズーム用デバウンスタイマー
+let lastMousePos = null; // 最新のマウスカーソル位置
+let zoomTargetScroll = null; // ズーム変更後のターゲットスクロール位置情報
 // 各ファイルに対する配置スタンプ情報。構造: [ { fileIndex: 0, stamps: [ { stampFile: 'xxx.png', x: 100, y: 200, px: 50, py: 100 } ] } ]
 let visualStampsSettings = [];
 let lastVisualStamps = []; // 直前に配置決定したスタンプ情報のキャッシュ
@@ -163,6 +165,12 @@ tabBtnStamp.addEventListener("click", () => {
   tabContentStamp.classList.remove("hidden");
   tabContentMaster.classList.add("hidden");
   loadSelectOptions(); // タブ切り替え時に選択肢を最新化
+
+  // マスタ設定での変更（リネームや削除）を反映させるため、ビジュアル押印モード時はプレビューを再描画する
+  const selectedMode = document.querySelector('input[name="mode"]:checked');
+  if (selectedMode && selectedMode.id === "radioVisual" && loadedPdfFiles.length > 0) {
+    renderVisualStep();
+  }
 });
 
 tabBtnMaster.addEventListener("click", () => {
@@ -187,7 +195,15 @@ function getStampDimensions(stampFile) {
   const { naturalWidth, naturalHeight } = meta;
   const ratio = naturalWidth / naturalHeight;
   let previewWidth, previewHeight, pdfWidth, pdfHeight;
-  if (naturalWidth >= naturalHeight) {
+  let borderRadius = "4px";
+
+  if (ratio >= 0.8 && ratio <= 1.25) {
+    borderRadius = "50%";
+    previewWidth = BASE_LONG;
+    previewHeight = BASE_LONG;
+    pdfWidth = BASE_PDF;
+    pdfHeight = BASE_PDF;
+  } else if (naturalWidth >= naturalHeight) {
     previewWidth = BASE_LONG;
     previewHeight = Math.max(20, Math.round(BASE_LONG / ratio));
     pdfWidth = BASE_PDF;
@@ -198,8 +214,6 @@ function getStampDimensions(stampFile) {
     pdfHeight = BASE_PDF;
     pdfWidth = Math.max(10, Math.round(BASE_PDF * ratio));
   }
-  // 縦横比が 0.8〜1.25 の範囲なら円形、それ以外は角丸長方形
-  const borderRadius = (ratio >= 0.8 && ratio <= 1.25) ? "50%" : "4px";
   return { previewWidth, previewHeight, borderRadius, pdfWidth, pdfHeight };
 }
 
@@ -541,6 +555,17 @@ function registerMasterEvents() {
         stampImages[idx] = newName;
         localStorage.setItem("stamp_images", JSON.stringify(stampImages));
 
+        // visualStampsSettings 内で配置済みの stampFile 名を一括更新
+        visualStampsSettings.forEach(setting => {
+          if (setting.stamps) {
+            setting.stamps.forEach(s => {
+              if (s.stampFile === oldName) {
+                s.stampFile = newName;
+              }
+            });
+          }
+        });
+
         // docTypes 内で参照している印影名を一括更新
         let docTypesChanged = false;
         docTypes.forEach(doc => {
@@ -581,10 +606,10 @@ function registerMasterEvents() {
 
       try {
         fs.copyFileSync(srcPath, destPath);
-        alert(`印影画像「${currentImageName}」を更新しました。`);
+        showToast(`印影画像「${currentImageName}」を更新しました。`, "success");
         renderMasterView();
       } catch (err) {
-        alert("画像の置換に失敗しました: " + err.message);
+        showToast("画像の置換に失敗しました: " + err.message, "error");
       }
     });
   });
@@ -614,6 +639,28 @@ function registerMasterEvents() {
           }
           stampImages.splice(index, 1);
           localStorage.setItem("stamp_images", JSON.stringify(stampImages));
+
+          // visualStampsSettings から削除された印影の一覧を一括除外
+          visualStampsSettings.forEach(setting => {
+            if (setting.stamps) {
+              setting.stamps = setting.stamps.filter(s => s.stampFile !== fileToDelete);
+            }
+          });
+
+          // docTypes 内で参照している印影名をクリア
+          let docTypesChanged = false;
+          docTypes.forEach(doc => {
+            doc.rules.forEach(rule => {
+              if (rule.stamp === fileToDelete) {
+                rule.stamp = "";
+                docTypesChanged = true;
+              }
+            });
+          });
+          if (docTypesChanged) {
+            localStorage.setItem("stamp_doc_types", JSON.stringify(docTypes));
+          }
+
           renderMasterView();
         }
       } else if (type === "doctype") {
@@ -670,7 +717,7 @@ function registerMasterEvents() {
 
       docTypes[docIdx].rules = newRules;
       localStorage.setItem("stamp_doc_types", JSON.stringify(docTypes));
-      alert("設定を保存しました。");
+      showToast("設定を保存しました。", "success");
       renderMasterView();
     });
   });
@@ -702,16 +749,16 @@ uploadStampBtn.addEventListener("click", async () => {
     tempImg.onload = () => {
       stampMeta[destName] = { naturalWidth: tempImg.naturalWidth, naturalHeight: tempImg.naturalHeight };
       localStorage.setItem("stamp_meta", JSON.stringify(stampMeta));
-      alert("印影画像を登録しました！");
+      showToast("印影画像を登録しました！", "success");
       renderMasterView();
     };
     tempImg.onerror = () => {
-      alert("印影画像を登録しました！");
+      showToast("印影画像を登録しました！", "success");
       renderMasterView();
     };
     tempImg.src = `file://${destPath}?t=${Date.now()}`;
   } catch (err) {
-    alert("エラーが発生しました: " + err.message);
+    showToast("エラーが発生しました: " + err.message, "error");
   }
 });
 
@@ -793,7 +840,7 @@ stampCreateSaveBtn.addEventListener("click", () => {
 addDocTypeBtn.addEventListener("click", () => {
   const name = newDocTypeName.value.trim();
   if (!name) {
-    alert("書類名を入力してください。");
+    showToast("書類名を入力してください。", "error");
     return;
   }
 
@@ -824,6 +871,7 @@ function displayFiles() {
     fileListWrapper.classList.add("hidden");
     disableRadioButtons();
     selectNothing();
+    setSidebarButtonsDisabled(true);
     return;
   }
 
@@ -904,7 +952,7 @@ function displayFiles() {
 function addFiles(files) {
   const hasNonPdfFiles = files.some(file => !file.name.toLowerCase().endsWith(".pdf"));
   if (hasNonPdfFiles) {
-    alert("PDFファイルのみを追加してください。");
+    showToast("PDFファイルのみを追加してください。", "error");
     return;
   }
 
@@ -1154,11 +1202,17 @@ async function renderPdfToCanvas(file) {
 }
 
 async function renderVisualStep() {
-  if (loadedPdfFiles.length === 0) return;
+  if (loadedPdfFiles.length === 0) {
+    setSidebarButtonsDisabled(true);
+    return;
+  }
 
   // 多重実行防止：各呼び出しにユニークなトークンを割り当て
   const myToken = Symbol("renderVisualStep");
   _renderVisualToken = myToken;
+
+  setSidebarButtonsDisabled(true);
+  try {
 
   const currentItem = loadedPdfFiles[currentVisualIndex];
   visualProgress.textContent = `PDF ${currentVisualIndex + 1} / ${loadedPdfFiles.length}`;
@@ -1254,7 +1308,7 @@ async function renderVisualStep() {
     const textPx = (saved.pdfX / ptWidth) * currentPreviewWidth;
     const elPx = Math.max(0, textPx - 5);
     const py = currentPreviewHeight - (saved.pdfY / ptHeight) * currentPreviewHeight - approxElH;
-    createDateTextElement(saved.text, elPx, py, saved.fontSizePt, true);
+    createDateTextElement(saved.text, elPx, py, saved.fontSizePt, true, saved.isDate || false);
   });
 
   // 保存済みの日付行があれば再現
@@ -1270,6 +1324,14 @@ async function renderVisualStep() {
     const py = currentPreviewHeight - (saved.pdfY / ptHeight) * currentPreviewHeight - approxElH;
     createDateRowElement(saved.year, saved.month, saved.day, saved.fontSizePt, gap1Px, gap2Px, px, py, true);
   });
+
+  // ズーム時のスクロール位置調整を適用
+  applyZoomScroll();
+  } finally {
+    if (_renderVisualToken === myToken) {
+      setSidebarButtonsDisabled(false);
+    }
+  }
 }
 
 // プレビュー上にスタンプ要素を生成する（initialWidth/Height: 復元時のピクセルサイズ）
@@ -1363,16 +1425,12 @@ function createVisualStampElement(stampFile, startX = null, startY = null, initi
 
   // 位置の指定がなければ現在表示中の範囲の中心に配置
   if (startX === null || startY === null) {
-    const _vc = getVisibleCenter();
+    const _vc = getVisibleCenter() || { x: currentPreviewWidth / 2, y: currentPreviewHeight / 2 };
     if (startX === null) {
-      startX = _vc
-        ? Math.max(0, Math.min(currentPreviewWidth - stampWidth, _vc.x - stampWidth / 2))
-        : (currentPreviewWidth - stampWidth) / 2;
+      startX = Math.max(0, Math.min(currentPreviewWidth - stampWidth, _vc.x - stampWidth / 2));
     }
     if (startY === null) {
-      startY = _vc
-        ? Math.max(0, Math.min(currentPreviewHeight - stampHeight, _vc.y - stampHeight / 2))
-        : (currentPreviewHeight - stampHeight) / 2;
+      startY = Math.max(0, Math.min(currentPreviewHeight - stampHeight, _vc.y - stampHeight / 2));
     }
   }
 
@@ -1519,6 +1577,7 @@ function saveDateTexts() {
     const py = parseFloat(el.style.top) || 0;
     const text = el.dataset.text;
     const fontSizePt = parseFloat(el.dataset.fontSizePt) || 9;
+    const isDate = el.dataset.isDate === "true";
 
     // X: 要素left + border-left(1px) + padding-left(4px) = テキスト表示開始位置
     const pdfX = Math.round(((px + 5) / currentPreviewWidth) * ptWidth);
@@ -1535,7 +1594,7 @@ function saveDateTexts() {
       pdfY = Math.round(((currentPreviewHeight - py - elH * 0.85) / currentPreviewHeight) * ptHeight);
     }
 
-    savedList.push({ text, fontSizePt, px, py, pdfX, pdfY });
+    savedList.push({ text, fontSizePt, px, py, pdfX, pdfY, isDate });
   });
 
   if (visualStampsSettings[currentVisualIndex]) {
@@ -1652,17 +1711,13 @@ function createDateRowElement(year, month, day, fontSizePt = 8, gap1Px = 24, gap
   el.appendChild(deleteBadge);
 
   if (startX === null || startY === null) {
-    const _vc = getVisibleCenter();
+    const _vc = getVisibleCenter() || { x: currentPreviewWidth / 2, y: currentPreviewHeight / 2 };
     const _elW = 120, _elH = displayFontSize;
     if (startX === null) {
-      startX = _vc
-        ? Math.max(0, Math.min(currentPreviewWidth - _elW, _vc.x - _elW / 2))
-        : (currentPreviewWidth - _elW) / 2;
+      startX = Math.max(0, Math.min(currentPreviewWidth - _elW, _vc.x - _elW / 2));
     }
     if (startY === null) {
-      startY = _vc
-        ? Math.max(0, Math.min(currentPreviewHeight - _elH, _vc.y - _elH / 2))
-        : (currentPreviewHeight - _elH) / 2;
+      startY = Math.max(0, Math.min(currentPreviewHeight - _elH, _vc.y - _elH / 2));
     }
   }
   el.style.left = startX + "px";
@@ -1800,11 +1855,12 @@ function makeGapHandle(parentEl, dataKey, initialWidthPx) {
 }
 
 // プレビュー上に日付テキスト要素を生成する
-function createDateTextElement(text, startX = null, startY = null, fontSizePt = 12, skipSave = false) {
+function createDateTextElement(text, startX = null, startY = null, fontSizePt = 12, skipSave = false, isDate = false) {
   const el = document.createElement("div");
   el.className = "draggable-date-text";
   el.dataset.text = text;
   el.dataset.fontSizePt = fontSizePt;
+  el.dataset.isDate = isDate;
 
   const setting = visualStampsSettings[currentVisualIndex];
   const ptWidth = (setting && setting.ptWidth) ? setting.ptWidth : A4_WIDTH_PT;
@@ -1834,17 +1890,13 @@ function createDateTextElement(text, startX = null, startY = null, fontSizePt = 
   el.appendChild(deleteBadge);
 
   if (startX === null || startY === null) {
-    const _vc = getVisibleCenter();
+    const _vc = getVisibleCenter() || { x: currentPreviewWidth / 2, y: currentPreviewHeight / 2 };
     const _elW = 50, _elH = displayFontSize;
     if (startX === null) {
-      startX = _vc
-        ? Math.max(0, Math.min(currentPreviewWidth - _elW, _vc.x - _elW / 2))
-        : (currentPreviewWidth - _elW) / 2;
+      startX = Math.max(0, Math.min(currentPreviewWidth - _elW, _vc.x - _elW / 2));
     }
     if (startY === null) {
-      startY = _vc
-        ? Math.max(0, Math.min(currentPreviewHeight - _elH, _vc.y - _elH / 2))
-        : (currentPreviewHeight - _elH) / 2;
+      startY = Math.max(0, Math.min(currentPreviewHeight - _elH, _vc.y - _elH / 2));
     }
   }
 
@@ -1976,9 +2028,10 @@ function createDateTextElement(text, startX = null, startY = null, fontSizePt = 
 
 // スタンプ追加ボタン
 addVisualStampBtn.addEventListener("click", () => {
+  if (loadedPdfFiles.length === 0) return;
   const selectedStamp = visualStampSelect.value;
   if (!selectedStamp) {
-    alert("印影画像が選択されていません。設定画面で追加してください。");
+    showToast("印影画像が選択されていません。設定画面で追加してください。", "error");
     return;
   }
   createVisualStampElement(selectedStamp);
@@ -2069,7 +2122,7 @@ async function processPdfOutput(mode = "normal") {
       const doc = docTypes.find(d => d.id === docId);
 
       if (!doc) {
-        alert(`${item.customName} に対する書類種別が設定されていません。`);
+        showToast(`${item.customName} に対する書類種別が設定されていません。`, "error");
         return;
       }
 
@@ -2090,7 +2143,7 @@ async function processPdfOutput(mode = "normal") {
     const doc = docTypes.find(d => d.id === docId);
 
     if (!doc) {
-      alert("書類種別を選択してください。");
+      showToast("書類種別を選択してください。", "error");
       return;
     }
 
@@ -2160,13 +2213,15 @@ async function processPdfOutput(mode = "normal") {
       const hasDateContent = (dateTexts && dateTexts.length > 0) || (dateRows && dateRows.length > 0);
       if (hasDateContent) {
         const jpFont = await embedJapaneseFont(pdfDoc);
+        const dateXOffset = parseFloat(localStorage.getItem("date_x_offset_pt")) || 0;
 
         // 任意テキストの描画
         for (const dt of (dateTexts || [])) {
           if (!dt.text) continue;
           try {
+            const xOffset = dt.isDate ? dateXOffset : 0;
             page.drawText(dt.text, {
-              x: dt.x,
+              x: dt.x + xOffset,
               y: dt.y,
               size: dt.fontSize,
               font: jpFont,
@@ -2181,11 +2236,12 @@ async function processPdfOutput(mode = "normal") {
         for (const dr of (dateRows || [])) {
           try {
             const fontSize = dr.fontSize;
+            const startX = dr.x + dateXOffset;
             // 年を描画
-            page.drawText(String(dr.year), { x: dr.x, y: dr.y, size: fontSize, font: jpFont, color: rgb(0, 0, 0) });
+            page.drawText(String(dr.year), { x: startX, y: dr.y, size: fontSize, font: jpFont, color: rgb(0, 0, 0) });
             // 月を描画（年のテキスト幅 + gap1Pt 分右に）
             const yearW = jpFont.widthOfTextAtSize(String(dr.year), fontSize);
-            const monthX = dr.x + yearW + dr.gap1Pt;
+            const monthX = startX + yearW + dr.gap1Pt;
             page.drawText(String(dr.month), { x: monthX, y: dr.y, size: fontSize, font: jpFont, color: rgb(0, 0, 0) });
             // 日を描画（月のテキスト幅 + gap2Pt 分右に）
             const monthW = jpFont.widthOfTextAtSize(String(dr.month), fontSize);
@@ -2228,14 +2284,53 @@ async function processPdfOutput(mode = "normal") {
 stampPdfBtn.addEventListener("click", () => processPdfOutput("normal"));
 
 
+// ビジュアル押印サイドバーの追加ボタン群の有効・無効を切り替える
+function setSidebarButtonsDisabled(disabled) {
+  const buttons = [
+    document.getElementById("addVisualStampBtn"),
+    document.getElementById("addDateYearBtn"),
+    document.getElementById("addDateMonthBtn"),
+    document.getElementById("addDateDayBtn"),
+    document.getElementById("addDateRowBtn"),
+    document.getElementById("addDateCustomBtn")
+  ];
+  buttons.forEach(btn => {
+    if (btn) {
+      btn.disabled = disabled;
+      if (disabled) {
+        btn.style.opacity = "0.6";
+        btn.style.pointerEvents = "none";
+      } else {
+        btn.style.opacity = "";
+        btn.style.pointerEvents = "";
+      }
+    }
+  });
+}
+
 // スクロールラッパー内の現在表示中の中心座標（プレビューエリア内px）を返す
 function getVisibleCenter() {
-  const sw = document.getElementById("visualPreviewScrollWrapper");
-  if (!sw) return null;
-  return {
-    x: sw.scrollLeft + sw.clientWidth / 2,
-    y: sw.scrollTop + sw.clientHeight / 2,
-  };
+  const area = document.getElementById("visualPreviewArea");
+  if (!area) return null;
+  const rect = area.getBoundingClientRect();
+
+  if (rect.width <= 0 || rect.height <= 0) {
+    return { x: PREVIEW_WIDTH_PX / 2, y: PREVIEW_HEIGHT_PX / 2 };
+  }
+
+  // 画面（ビューポート）の中央座標
+  const viewportCenterX = window.innerWidth / 2;
+  const viewportCenterY = window.innerHeight / 2;
+
+  // ビューポート中央がプレビューエリアのどの位置にあるかを逆算
+  let x = viewportCenterX - rect.left;
+  let y = viewportCenterY - rect.top;
+
+  // プレビューエリアの範囲内に収める
+  x = Math.max(0, Math.min(rect.width, x));
+  y = Math.max(0, Math.min(rect.height, y));
+
+  return { x, y };
 }
 
 // ズームインジケーターを更新する
@@ -2244,10 +2339,60 @@ function updateZoomDisplay() {
   if (el) el.textContent = Math.round(currentZoom * 100) + "%";
 }
 
+// ズーム中心を保存する
+function saveZoomTargetScroll(oldZoom, newZoom) {
+  if (sectionVisual.classList.contains("hidden") || loadedPdfFiles.length === 0) return;
+  const sw = document.getElementById("visualPreviewScrollWrapper");
+  if (!sw) return;
+
+  const rect = sw.getBoundingClientRect();
+  let mouseX = rect.width / 2;
+  let mouseY = rect.height / 2;
+
+  if (lastMousePos) {
+    const mx = lastMousePos.clientX - rect.left;
+    const my = lastMousePos.clientY - rect.top;
+    if (mx >= 0 && mx <= rect.width && my >= 0 && my <= rect.height) {
+      mouseX = mx;
+      mouseY = my;
+    }
+  }
+
+  const oldWidth = visualPreviewArea.clientWidth || rect.width;
+  const oldHeight = parseFloat(visualPreviewArea.style.height) || rect.height;
+
+  const r_x = (mouseX + sw.scrollLeft) / oldWidth;
+  const r_y = (mouseY + sw.scrollTop) / oldHeight;
+
+  zoomTargetScroll = { r_x, r_y, mouseX, mouseY };
+}
+
+// 保存したズーム中心にスクロール位置を適用する
+function applyZoomScroll() {
+  if (!zoomTargetScroll) return;
+  const sw = document.getElementById("visualPreviewScrollWrapper");
+  if (!sw) return;
+
+  const rect = visualPreviewArea.getBoundingClientRect();
+  const newWidth = visualPreviewArea.clientWidth || rect.width;
+  const newHeight = parseFloat(visualPreviewArea.style.height) || rect.height;
+
+  sw.scrollLeft = zoomTargetScroll.r_x * newWidth - zoomTargetScroll.mouseX;
+  sw.scrollTop = zoomTargetScroll.r_y * newHeight - zoomTargetScroll.mouseY;
+
+  zoomTargetScroll = null;
+}
+
 // ズームを変更してプレビューを即時再描画する
 function changeZoom(delta) {
   if (sectionVisual.classList.contains("hidden") || loadedPdfFiles.length === 0) return;
-  currentZoom = Math.max(0.5, Math.min(3.0, Math.round((currentZoom + delta) * 10) / 10));
+  const oldZoom = currentZoom;
+  const newZoom = Math.max(0.5, Math.min(3.0, Math.round((currentZoom + delta) * 10) / 10));
+  if (oldZoom === newZoom) return;
+
+  saveZoomTargetScroll(oldZoom, newZoom);
+
+  currentZoom = newZoom;
   updateZoomDisplay();
   renderVisualStep();
 }
@@ -2255,7 +2400,13 @@ function changeZoom(delta) {
 // ホイール操作用：短時間に連続して来るイベントをデバウンスしてから再描画する
 function changeZoomDebounced(delta) {
   if (sectionVisual.classList.contains("hidden") || loadedPdfFiles.length === 0) return;
-  currentZoom = Math.max(0.5, Math.min(3.0, Math.round((currentZoom + delta) * 10) / 10));
+  const oldZoom = currentZoom;
+  const newZoom = Math.max(0.5, Math.min(3.0, Math.round((currentZoom + delta) * 10) / 10));
+  if (oldZoom === newZoom) return;
+
+  saveZoomTargetScroll(oldZoom, newZoom);
+
+  currentZoom = newZoom;
   updateZoomDisplay();
   clearTimeout(_zoomRenderTimer);
   _zoomRenderTimer = setTimeout(() => renderVisualStep(), 80);
@@ -2325,13 +2476,21 @@ window.addEventListener("DOMContentLoaded", async () => {
     localStorage.setItem("date_font_size_pt", _fontSizeEl.value);
   });
 
+  // 日付位置微調整の保存・復元（localStorage）
+  const _dateXOffsetEl = document.getElementById("dateXOffsetPt");
+  const _savedDateXOffset = localStorage.getItem("date_x_offset_pt");
+  if (_savedDateXOffset !== null) _dateXOffsetEl.value = _savedDateXOffset;
+  _dateXOffsetEl.addEventListener("change", () => {
+    localStorage.setItem("date_x_offset_pt", _dateXOffsetEl.value);
+  });
+
   // 日付テキスト追加ボタンのイベント登録
   document.getElementById("addDateYearBtn").addEventListener("click", () => {
     if (loadedPdfFiles.length === 0) return;
     const val = document.getElementById("dateYearInput").value.trim();
     if (!val) return;
     const fs = parseFloat(document.getElementById("dateFontSizePt").value) || 8;
-    createDateTextElement(val, null, null, fs);
+    createDateTextElement(val, null, null, fs, false, true);
   });
 
   document.getElementById("addDateMonthBtn").addEventListener("click", () => {
@@ -2339,7 +2498,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const val = document.getElementById("dateMonthInput").value.trim();
     if (!val) return;
     const fs = parseFloat(document.getElementById("dateFontSizePt").value) || 8;
-    createDateTextElement(val, null, null, fs);
+    createDateTextElement(val, null, null, fs, false, true);
   });
 
   document.getElementById("addDateDayBtn").addEventListener("click", () => {
@@ -2347,7 +2506,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const val = document.getElementById("dateDayInput").value.trim();
     if (!val) return;
     const fs = parseFloat(document.getElementById("dateFontSizePt").value) || 8;
-    createDateTextElement(val, null, null, fs);
+    createDateTextElement(val, null, null, fs, false, true);
   });
 
   document.getElementById("addDateCustomBtn").addEventListener("click", () => {
@@ -2379,6 +2538,12 @@ window.addEventListener("DOMContentLoaded", async () => {
         changeZoomDebounced(e.deltaY < 0 ? 0.1 : -0.1);
       }
     }, { passive: false });
+    _scrollWrapper.addEventListener("mousemove", (e) => {
+      lastMousePos = { clientX: e.clientX, clientY: e.clientY };
+    });
+    _scrollWrapper.addEventListener("mouseleave", () => {
+      lastMousePos = null;
+    });
   }
 
   // ドラッグでパン（スクロール）操作 — スタンプや日付要素以外の領域をドラッグで視点移動
@@ -2443,6 +2608,11 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
   resizeObserver.observe(tabContentStamp);
+
+  // 初期状態ではPDFが未ロードのため、追加ボタンを無効化しておく
+  if (loadedPdfFiles.length === 0) {
+    setSidebarButtonsDisabled(true);
+  }
 });
 
 // --- 座標自動測定モーダル制御 ---
@@ -2503,7 +2673,7 @@ function initMeasureModalEvents() {
         if (file.name.toLowerCase().endsWith(".pdf")) {
           await loadMeasurePdf(file);
         } else {
-          alert("PDFファイルのみを追加してください。");
+          showToast("PDFファイルのみを追加してください。", "error");
         }
       }
     });
@@ -2565,7 +2735,7 @@ function initMeasureModalEvents() {
     docTypes[activeMeasureDocIdx].rules[activeMeasureRuleIdx].y = yVal;
 
     localStorage.setItem("stamp_doc_types", JSON.stringify(docTypes));
-    alert("座標をフォームに適用しました。保存ボタンを押して確定させてください。");
+    showToast("座標をフォームに適用しました。保存ボタンを押して確定させてください。", "info", 5000);
 
     closeMeasureModal();
     renderMasterView();
@@ -2652,7 +2822,7 @@ async function loadMeasurePdf(file) {
 
   } catch (err) {
     console.error("テストPDF読み込みエラー: ", err);
-    alert("テストPDFの読み込みに失敗しました。\n" + err.message);
+    showToast("テストPDFの読み込みに失敗しました。\n" + err.message, "error", 5000);
   }
 }
 
