@@ -270,6 +270,11 @@ p.label-title {
   margin-bottom: 8px;
 }
 
+input, textarea {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
 .input,
 .select select {
   background: #ffffff !important;
@@ -278,6 +283,8 @@ p.label-title {
   border-radius: 6px !important;
   font-size: 0.875rem !important;
   height: 2.5em !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 
 .input:focus,
@@ -991,4 +998,13 @@ p.label-title {
 
 .date-edit-popup input {
   font-family: 'Inter', 'Noto Sans JP', sans-serif;
+}
+
+/* マスタ管理タブ用のテキスト選択許可（フォーカス阻害バグ対策） */
+#tabContentMaster,
+#tabContentMaster .card-panel,
+#tabContentMaster .setting-row,
+#tabContentMaster .pair-row {
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
