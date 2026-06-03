@@ -261,6 +261,23 @@
           </div>
         </div>
 
+        <!-- アプリ情報・アップデート -->
+        <div class="card-panel">
+          <h2 class="master-section-title">アプリ情報・アップデート</h2>
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary);">
+                現在のバージョン: <strong id="currentAppVersion" style="color: var(--text-primary);">-</strong>
+              </span>
+              <span id="updateVersionBadge"
+                style="display: none; font-size: 0.72rem; font-weight: 600; background: var(--accent-color); color: #fff; padding: 2px 8px; border-radius: 10px;"></span>
+            </div>
+            <button id="checkUpdateBtn" class="btn-submit" style="background: #475569; padding: 6px 14px; font-size: 0.82rem; height: auto; width: auto;">
+              <i class="fa-solid fa-rotate"></i> アップデートを今すぐ確認
+            </button>
+          </div>
+        </div>
+
         <!-- 書類種別管理 -->
         <div class="card-panel">
           <h2 class="master-section-title">書類種別の管理</h2>
