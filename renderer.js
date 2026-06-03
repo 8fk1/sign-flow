@@ -97,6 +97,24 @@ const stampCreateFilename = document.getElementById("stampCreateFilename");
 const stampCreateCancelBtn = document.getElementById("stampCreateCancelBtn");
 const stampCreateSaveBtn = document.getElementById("stampCreateSaveBtn");
 
+// アップデート関連DOM
+const checkUpdateBtn = document.getElementById("checkUpdateBtn");
+const currentAppVersionEl = document.getElementById("currentAppVersion");
+const updateVersionBadgeEl = document.getElementById("updateVersionBadge");
+
+// アプリバージョンを表示
+ipcRenderer.invoke("get-app-version").then(v => {
+  if (currentAppVersionEl) currentAppVersionEl.textContent = `v${v}`;
+});
+
+// 手動アップデート確認ボタン
+if (checkUpdateBtn) {
+  checkUpdateBtn.addEventListener("click", () => {
+    _manualUpdateCheck = true;
+    ipcRenderer.send("check-for-update-manual");
+  });
+}
+
 // アプリケーションの状態
 let loadedPdfFiles = [];
 let stampImages = [];
@@ -2637,6 +2655,66 @@ async function loadMeasurePdf(file) {
     alert("テストPDFの読み込みに失敗しました。\n" + err.message);
   }
 }
+
+// --- 自動アップデート IPC リスナー ---
+let _updateToast = null;
+
+ipcRenderer.on('update-checking', () => {
+  // 手動チェック時のみ toast を表示（自動チェックはサイレント）
+  if (_manualUpdateCheck) {
+    _updateToast = showToast('アップデートを確認しています...', 'info', 0);
+  }
+});
+
+ipcRenderer.on('update-available', (event, info) => {
+  if (_updateToast) { _updateToast.remove(); _updateToast = null; }
+  _manualUpdateCheck = false;
+  showToast(`v${info.version} が利用可能です。バックグラウンドでダウンロード中...`, 'info', 6000);
+});
+
+ipcRenderer.on('update-not-available', () => {
+  if (_updateToast) { _updateToast.remove(); _updateToast = null; }
+  if (_manualUpdateCheck) {
+    showToast('すでに最新バージョンです。', 'success', 3000);
+  }
+  _manualUpdateCheck = false;
+});
+
+ipcRenderer.on('update-download-progress', (event, progress) => {
+  const pct = Math.round(progress.percent || 0);
+  if (updateVersionBadgeEl) {
+    updateVersionBadgeEl.style.display = 'inline-block';
+    updateVersionBadgeEl.textContent = `ダウンロード中 ${pct}%`;
+  }
+});
+
+ipcRenderer.on('update-downloaded', (event, info) => {
+  if (_updateToast) { _updateToast.remove(); _updateToast = null; }
+  if (updateVersionBadgeEl) {
+    updateVersionBadgeEl.style.display = 'inline-block';
+    updateVersionBadgeEl.style.background = '#16a34a';
+    updateVersionBadgeEl.textContent = `v${info.version} 準備完了`;
+  }
+  showToast(
+    `v${info.version} のアップデートが準備できました。今すぐ再起動して適用しますか？`,
+    'success',
+    0,
+    {
+      text: '再起動してアップデート',
+      callback: () => { ipcRenderer.send('install-update'); }
+    }
+  );
+});
+
+ipcRenderer.on('update-error', (event, message) => {
+  if (_updateToast) { _updateToast.remove(); _updateToast = null; }
+  if (_manualUpdateCheck) {
+    showToast(`アップデートの確認に失敗しました。\nサーバに接続できない可能性があります。`, 'error', 5000);
+  }
+  _manualUpdateCheck = false;
+});
+
+let _manualUpdateCheck = false;
 
 // トースト通知を表示する関数（アクションボタンの指定が可能）
 function showToast(message, type = "info", duration = 3000, action = null) {
