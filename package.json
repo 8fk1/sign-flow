@@ -1,7 +1,7 @@
 {
   "name": "sign-flow",
   "productName": "sign-flow",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -14,6 +14,7 @@
   },
   "build": {
     "appId": "net.katsubemakto.blog.app.my",
+    "npmRebuild": false,
     "mac": {
       "target": "dmg",
       "icon": "build/icon.png"
