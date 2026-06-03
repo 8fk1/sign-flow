@@ -102,6 +102,31 @@ const checkUpdateBtn = document.getElementById("checkUpdateBtn");
 const currentAppVersionEl = document.getElementById("currentAppVersion");
 const updateVersionBadgeEl = document.getElementById("updateVersionBadge");
 
+// テーマ切り替え
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const icon = themeToggleBtn ? themeToggleBtn.querySelector("i") : null;
+  if (icon) {
+    icon.className = theme === "dark" ? "fa-solid fa-sun" : "fa-solid fa-moon";
+  }
+}
+
+(function initTheme() {
+  const saved = localStorage.getItem("theme") || "light";
+  applyTheme(saved);
+})();
+
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener("click", () => {
+    const current = document.documentElement.dataset.theme;
+    const next = current === "dark" ? "light" : "dark";
+    applyTheme(next);
+    localStorage.setItem("theme", next);
+  });
+}
+
 // アプリバージョンを表示
 ipcRenderer.invoke("get-app-version").then(v => {
   if (currentAppVersionEl) currentAppVersionEl.textContent = `v${v}`;

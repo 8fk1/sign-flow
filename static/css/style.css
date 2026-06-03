@@ -12,6 +12,75 @@
   --transition-speed: 0.2s;
   --danger-color: #dc2626;
   --danger-hover: #b91c1c;
+  /* 追加変数（ハードコード色の変数化） */
+  --input-bg: #ffffff;
+  --drop-border: #cbd5e1;
+  --drop-hover-bg: #eff6ff;
+  --drop-dragover-bg: #dbeafe;
+  --hover-bg: #f1f5f9;
+  --danger-hover-bg: #fee2e2;
+  --setting-row-bg: #f8fafc;
+  --mode-switch-bg: #e2e8f0;
+  --mode-active-bg: #ffffff;
+  --file-count-badge-bg: #e2e8f0;
+  --date-panel-bg: #f0fdf4;
+  --date-panel-border: #a7f3d0;
+  --stamp-thumbnail-bg: #f8fafc;
+  --stamp-thumbnail-border: #cbd5e1;
+  --modal-head-foot-bg: #ffffff;
+  --toast-bg: #ffffff;
+  --stamp-panel-bg: #f8fafc;
+  --stamp-panel-border: #cbd5e1;
+  --pair-row-bg: #ffffff;
+  --pair-row-border: #e2e8f0;
+  --rename-row-bg: #f8fafc;
+  --rename-row-border: #e2e8f0;
+  --canvas-border: #cbd5e1;
+  --file-card-bg: #ffffff;
+  --stamp-card-bg: #ffffff;
+  --stamp-card-btn-bg: #ffffff;
+  --stamp-card-btn-hover: #f1f5f9;
+  --drop-zone-small-bg: #ffffff;
+}
+
+[data-theme="dark"] {
+  --bg-color: #0f172a;
+  --panel-bg: #1e293b;
+  --panel-border: #334155;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --accent-color: #3b82f6;
+  --accent-hover: #2563eb;
+  --danger-color: #f87171;
+  --danger-hover: #ef4444;
+  --input-bg: #0f172a;
+  --drop-border: #475569;
+  --drop-hover-bg: #1e3a5f;
+  --drop-dragover-bg: #1e3a8f;
+  --hover-bg: #334155;
+  --danger-hover-bg: #450a0a;
+  --setting-row-bg: #0f172a;
+  --mode-switch-bg: #0f172a;
+  --mode-active-bg: #334155;
+  --file-count-badge-bg: #334155;
+  --date-panel-bg: #022c22;
+  --date-panel-border: #064e3b;
+  --stamp-thumbnail-bg: #0f172a;
+  --stamp-thumbnail-border: #475569;
+  --modal-head-foot-bg: #1e293b;
+  --toast-bg: #1e293b;
+  --stamp-panel-bg: #0f172a;
+  --stamp-panel-border: #334155;
+  --pair-row-bg: #0f172a;
+  --pair-row-border: #334155;
+  --rename-row-bg: #0f172a;
+  --rename-row-border: #334155;
+  --canvas-border: #475569;
+  --file-card-bg: #1e293b;
+  --stamp-card-bg: #1e293b;
+  --stamp-card-btn-bg: #334155;
+  --stamp-card-btn-hover: #475569;
+  --drop-zone-small-bg: #1e293b;
 }
 
 * {
@@ -72,7 +141,7 @@ body {
 }
 
 .tab-btn:hover {
-  background: #f1f5f9;
+  background: var(--hover-bg);
   color: var(--text-primary);
 }
 
@@ -102,9 +171,9 @@ body {
   position: relative;
   overflow: hidden;
   width: 100%;
-  border: 2px dashed #cbd5e1;
+  border: 2px dashed var(--drop-border);
   border-radius: var(--border-radius);
-  background: #f8fafc;
+  background: var(--bg-color);
   padding: 40px 20px;
   display: flex;
   flex-direction: column;
@@ -116,12 +185,12 @@ body {
 
 #dropArea:hover {
   border-color: var(--accent-color);
-  background: #eff6ff;
+  background: var(--drop-hover-bg);
 }
 
 #dropArea.is-dragover {
   border-color: var(--accent-color);
-  background: #dbeafe;
+  background: var(--drop-dragover-bg);
 }
 
 .file-icon {
@@ -148,7 +217,7 @@ body {
 }
 
 .file-count-badge {
-  background: #e2e8f0;
+  background: var(--file-count-badge-bg);
   color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
@@ -169,7 +238,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #ffffff;
+  background: var(--file-card-bg);
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   padding: 10px 12px;
@@ -226,13 +295,13 @@ body {
 
 .delete-btn:hover {
   color: var(--danger-color);
-  background: #fee2e2;
+  background: var(--danger-hover-bg);
 }
 
 /* モード切り替え */
 .mode-switch {
   display: flex;
-  background: #e2e8f0;
+  background: var(--mode-switch-bg);
   padding: 4px;
   border-radius: 6px;
   margin-bottom: 16px;
@@ -253,7 +322,7 @@ body {
 }
 
 .mode-switch label.radio:has(input:checked) {
-  background: #ffffff;
+  background: var(--mode-active-bg);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
@@ -277,8 +346,8 @@ input, textarea {
 
 .input,
 .select select {
-  background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
+  background: var(--input-bg) !important;
+  border: 1px solid var(--drop-border) !important;
   color: var(--text-primary) !important;
   border-radius: 6px !important;
   font-size: 0.875rem !important;
@@ -303,7 +372,7 @@ input, textarea {
 
 /* 設定行 */
 .setting-row {
-  background: #f8fafc;
+  background: var(--setting-row-bg);
   border: 1px solid var(--panel-border);
   border-radius: var(--border-radius);
   padding: 16px;
@@ -338,8 +407,8 @@ input, textarea {
 }
 
 .btn-submit:disabled {
-  background: #e2e8f0;
-  color: #94a3b8;
+  background: var(--mode-switch-bg);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
@@ -361,8 +430,8 @@ input, textarea {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--rename-row-bg);
+  border: 1px solid var(--rename-row-border);
   border-radius: 6px;
   padding: 6px 10px;
 }
@@ -388,8 +457,8 @@ input, textarea {
   flex: 1;
   min-width: 0;
   max-width: 1400px;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  background: var(--panel-bg);
+  border: 1px solid var(--canvas-border);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   border-radius: 4px;
   overflow: hidden;
@@ -409,10 +478,10 @@ input, textarea {
 }
 
 .visual-stamp-panel {
-  background: #f8fafc;
+  background: var(--stamp-panel-bg);
   padding: 12px;
   border-radius: 6px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--stamp-panel-border);
 }
 
 .visual-nav-buttons {
@@ -520,7 +589,7 @@ input, textarea {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #f8fafc;
+  background: var(--setting-row-bg);
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   margin-bottom: 6px;
@@ -532,10 +601,10 @@ input, textarea {
   gap: 8px;
   margin-bottom: 8px;
   align-items: center;
-  background: #ffffff;
+  background: var(--pair-row-bg);
   padding: 8px;
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--pair-row-border);
 }
 
 .pair-row>div {}
@@ -561,7 +630,7 @@ input, textarea {
 }
 
 .stamp-card {
-  background: #ffffff;
+  background: var(--stamp-card-bg);
   border: 1px solid var(--panel-border);
   border-radius: var(--border-radius);
   padding: 12px;
@@ -583,8 +652,8 @@ input, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  background: var(--stamp-thumbnail-bg);
+  border: 1px dashed var(--stamp-thumbnail-border);
   border-radius: 50%;
   padding: 4px;
   overflow: hidden;
@@ -624,8 +693,8 @@ input, textarea {
   font-weight: 600;
   padding: 6px 0;
   border-radius: 4px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
+  border: 1px solid var(--drop-border);
+  background: var(--stamp-card-btn-bg);
   cursor: pointer;
   text-align: center;
   transition: all var(--transition-speed);
@@ -636,18 +705,18 @@ input, textarea {
 }
 
 .stamp-card-btn:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+  background: var(--stamp-card-btn-hover);
+  border-color: var(--text-secondary);
 }
 
 .stamp-card-btn.stamp-delete-btn {
   color: var(--danger-color);
-  border-color: #fee2e2;
+  border-color: var(--danger-hover-bg);
 }
 
 .stamp-card-btn.stamp-delete-btn:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
+  background: var(--danger-hover-bg);
+  border-color: var(--danger-color);
 }
 
 /* 書類種別の複数カラムグリッド化 */
@@ -725,7 +794,7 @@ input, textarea {
 }
 
 .modal-card-head {
-  background-color: #ffffff !important;
+  background-color: var(--modal-head-foot-bg) !important;
   border-bottom: 1px solid var(--panel-border) !important;
 }
 
@@ -738,7 +807,7 @@ input, textarea {
 }
 
 .modal-card-foot {
-  background-color: #ffffff !important;
+  background-color: var(--modal-head-foot-bg) !important;
   border-top: 1px solid var(--panel-border) !important;
 }
 
@@ -747,9 +816,9 @@ input, textarea {
   position: relative;
   overflow: hidden;
   width: 100%;
-  border: 2px dashed #cbd5e1;
+  border: 2px dashed var(--drop-border);
   border-radius: var(--border-radius);
-  background: #ffffff;
+  background: var(--drop-zone-small-bg);
   padding: 24px 16px;
   display: flex;
   flex-direction: column;
@@ -761,12 +830,12 @@ input, textarea {
 
 .drop-zone-small:hover {
   border-color: var(--accent-color);
-  background: #eff6ff;
+  background: var(--drop-hover-bg);
 }
 
 .drop-zone-small.is-dragover {
   border-color: var(--accent-color);
-  background: #dbeafe;
+  background: var(--drop-dragover-bg);
 }
 
 .drop-zone-small .file-input {
@@ -797,7 +866,7 @@ input, textarea {
   max-width: 440px;
   padding: 14px 20px;
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--toast-bg);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
   border: 1px solid var(--panel-border);
   border-left: 4px solid var(--accent-color);
@@ -849,10 +918,10 @@ input, textarea {
 
 /* 日付テキスト追加パネル */
 .visual-date-panel {
-  background: #f0fdf4;
+  background: var(--date-panel-bg);
   padding: 12px;
   border-radius: 6px;
-  border: 1px solid #a7f3d0;
+  border: 1px solid var(--date-panel-border);
 }
 
 .date-quick-row {
@@ -998,6 +1067,40 @@ input, textarea {
 
 .date-edit-popup input {
   font-family: 'Inter', 'Noto Sans JP', sans-serif;
+}
+
+/* テーマトグルボタン */
+.theme-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  transition: all var(--transition-speed);
+  flex-shrink: 0;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+/* ヘッダーを横並びに（タイトル左・トグル右） */
+.hero-body {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+}
+
+.hero-body .hero-text {
+  flex: 1;
 }
 
 /* マスタ管理タブ用のテキスト選択許可（フォーカス阻害バグ対策） */
