@@ -1,6 +1,20 @@
 const { app, BrowserWindow, ipcMain, dialog, nativeTheme } = require('electron');
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
 const fs = require('fs');
 const path = require('path');
+
+// ========================================================
+// 自動アップデート設定（GitHub Releases / プライベートリポジトリ）
+//
+// 【初回セットアップ手順】
+// 1. GitHub → Settings → Developer settings → Personal access tokens
+//    → Fine-grained tokens → Generate new token
+//    ・Repository access: sign-flow のみ
+//    ・Permissions: Contents = Read-only
+// 2. 発行されたトークン（ghp_xxxx...）を下の UPDATER_TOKEN に設定してコミット
+// ========================================================
+const UPDATER_TOKEN = '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'; // ← ここを書き換えてください
 
 // ユーザーデータ内の印影フォルダを初期化する
 function initStampFolder() {
@@ -22,6 +36,58 @@ function initStampFolder() {
   return userStampDir;
 }
 
+// autoUpdater のログを electron-log に向ける
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
+autoUpdater.autoDownload = true;      // 更新があれば自動ダウンロード
+autoUpdater.autoInstallOnAppQuit = false; // 終了時に自動インストールはしない（ユーザーに委ねる）
+
+function setupAutoUpdater(mainWindow) {
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: '8fk1',
+    repo: 'sign-flow',
+    private: true,
+    token: UPDATER_TOKEN,
+  });
+
+  autoUpdater.on('checking-for-update', () => {
+    log.info('アップデートを確認中...');
+    mainWindow.webContents.send('update-checking');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    log.info('アップデートあり:', info.version);
+    mainWindow.webContents.send('update-available', info);
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    log.info('アップデートなし（最新版）');
+    mainWindow.webContents.send('update-not-available');
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    mainWindow.webContents.send('update-download-progress', progressObj);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    log.info('ダウンロード完了:', info.version);
+    mainWindow.webContents.send('update-downloaded', info);
+  });
+
+  autoUpdater.on('error', (err) => {
+    log.error('アップデートエラー:', err.message);
+    mainWindow.webContents.send('update-error', err.message);
+  });
+
+  // 起動5秒後に自動チェック（UI安定後）
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(err => {
+      log.warn('アップデート確認に失敗（サーバ未到達の可能性）:', err.message);
+    });
+  }, 5000);
+}
+
 // GPUのサンドボックスを無効化
 app.commandLine.appendSwitch('disable-gpu-sandbox')
 
@@ -34,7 +100,7 @@ ipcMain.on('open-devtools', (event) => {
 ipcMain.handle('show-open-dialog', async (event, options) => {
   const result = await dialog.showOpenDialog({
     title: '保存先フォルダを選択',
-    properties: ['openDirectory'], // フォルダのみ選択
+    properties: ['openDirectory'],
   });
   return result;
 });
@@ -55,37 +121,51 @@ ipcMain.handle('show-image-dialog', async (event) => {
   return result;
 });
 
+// アプリのバージョンを返す
+ipcMain.handle('get-app-version', () => app.getVersion());
+
+// アップデートを今すぐインストール（再起動）
+ipcMain.on('install-update', () => {
+  autoUpdater.quitAndInstall();
+});
+
+// 手動でアップデートを確認する
+ipcMain.on('check-for-update-manual', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  autoUpdater.checkForUpdates().catch(err => {
+    win.webContents.send('update-error', err.message);
+  });
+});
+
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 1000,
     height: 650,
     title: 'SignFlow',
-    // frame: false,
     icon: path.join(__dirname, 'static/img/icon/icon.png'),
-    show: false, // 起動プロセスが完了するまで WebView を表示しない
+    show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#1e1e23', // ウィンドウの背景色をあらかじめレンダラープロセスと合わせておく
+    backgroundColor: '#1e1e23',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'), // preloadスクリプト
-      nodeIntegration: true, // これを設定して、rendererプロセスでNode.js機能を使う
-      contextIsolation: false, // 必要に応じて有効にする
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: true,
+      contextIsolation: false,
     },
   });
-  // nativeTheme.themeSource = 'dark';
-  // mainWindow.webContents.openDevTools({mode: 'detach'});
-  // mainWindow.webContents.openDevTools({mode: 'right'});
 
   mainWindow.loadFile('index.html');
-  // レンダリングの準備が完了するのを待ってから WebView を表示する
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    setupAutoUpdater(mainWindow);
+  });
 };
 
 app.once('ready', () => {
-  initStampFolder(); // 印影フォルダの初期化
+  initStampFolder();
 
   ipcMain.handle('open-dialog', async (_e, _arg) => {
     return dialog
-      .showOpenDialog(mainWindow, {
+      .showOpenDialog({
         properties: ['openFile'],
       })
       .then((result) => {
