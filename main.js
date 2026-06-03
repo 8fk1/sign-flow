@@ -26,10 +26,9 @@ function initStampFolder() {
     if (fs.existsSync(defaultStampSrc)) {
       const files = fs.readdirSync(defaultStampSrc);
       files.forEach(file => {
-        fs.copyFileSync(
-          path.join(defaultStampSrc, file),
-          path.join(userStampDir, file)
-        );
+        const srcPath = path.join(defaultStampSrc, file);
+        if (!fs.statSync(srcPath).isFile()) return;
+        fs.copyFileSync(srcPath, path.join(userStampDir, file));
       });
     }
   }

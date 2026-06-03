@@ -1,5 +1,50 @@
 # 変更履歴
 
+## 2026-06-04 — Mac インストール後の起動クラッシュ修正
+
+### 依頼内容
+Mac でアプリをインストール・起動したところ `Uncaught Exception: Error: ENOENT, static/img/stamp/新しいフォルダー not found` でクラッシュ。
+
+### 原因
+`initStampFolder()` が `static/img/stamp/` 内のエントリを全件 `copyFileSync` しようとするが、同ディレクトリに `新しいフォルダー`（サブディレクトリ）と `stamp.pptx`（不要ファイル）が含まれており、ディレクトリを `copyFileSync` しようとして ENOENT エラー。
+
+### 対処内容
+1. `main.js` の `initStampFolder()` でコピー前に `fs.statSync().isFile()` チェックを追加してディレクトリをスキップ
+2. `static/img/stamp/新しいフォルダー/` を削除
+3. `static/img/stamp/stamp.pptx` を削除
+
+### テスト結果
+`npx playwright test` → 12/12 通過
+
+---
+
+## 2026-06-04 — Windows ビルド時のアイコンパス修正
+
+### 依頼内容
+`npm run app:dist` が Windows 上で正しく完了するか調査し、問題があれば修正する。
+
+### 原因
+`package.json` の `build.mac.icon` および `build.win.icon` がともに `"build/icon.png"` を参照していたが、`build/` ディレクトリは `.gitignore` に含まれており実際には存在しない。Windows 上のクリーンな環境では `build/icon.png` が見つからずビルドエラーが発生する。
+
+### 対処内容
+`package.json` のアイコンパスを実在するファイルに変更：
+
+- `mac.icon`: `"build/icon.png"` → `"static/img/icon/icon.png"` (PNG 256x256)
+- `win.icon`: `"build/icon.png"` → `"static/img/icon/app.ico"` (ICO 256x256)
+
+### 結果
+Windows 上でもアイコンが正しく解決され、`npm run app:dist` が最後まで完了するはず。
+
+---
+
+## 次に強化・追加する機能の候補
+
+1. **Apple Developer ID 署名** — GitHub Actions での正式署名・公証(notarization)設定
+2. **二重円スタイルの対応** — 本格的な印鑑らしい二重円デザイン
+3. **文字色・フォント変更** — 赤以外の色や明朝体/ゴシック体の選択
+4. **角印作成機能** — 四角い枠に会社名・役職を配置するスタイル
+5. **印影サイズのプレビュー表示** — PDF上でのスタンプ実寸大イメージをプレビューで確認
+
 ## 2026-06-03 23:30
 
 ### 依頼内容
