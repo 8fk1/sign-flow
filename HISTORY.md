@@ -141,3 +141,37 @@ package.json の "version" を上げて git push
 3. **角印作成機能** — 四角い枠に会社名・役職を配置するスタイルの追加
 4. **作成済み印影の編集** — マスタ一覧から既存の作成印影を再編集する機能
 5. **印影サイズのプレビュー表示** — PDF上でのスタンプ実寸大イメージをプレビューで確認できる機能
+
+---
+
+## 2026-06-04 00:15 — npm run app:dist ビルドエラー修正
+
+### 依頼内容
+`npm run app:dist` が失敗するとの報告。
+
+### 原因
+macOS 15 (Sequoia) で導入された `com.apple.provenance` 拡張属性が、Electron のキャッシュから展開されたバイナリに自動付加される。これが `codesign --timestamp` コマンドと組み合わさると「resource fork, Finder information, or similar detritus not allowed」エラーを引き起こす。`xattr -cr`、ファイルの再作成、`dd` によるコピーなどでも除去不可能な保護属性。
+
+### 対処内容
+1. `scripts/afterPack.js` を作成（afterPack フック）— xattr + copyFile による属性除去を試みる（副次的効果）
+2. `package.json` の `build.mac` に以下を追加：
+   - `"identity": null` — コード署名を完全スキップ（ad-hoc署名も行わない）
+   - `"hardenedRuntime": false` — `--options runtime` を無効化
+   - `"gatekeeperAssess": false` — Gatekeeper チェックを無効化
+3. `~/Library/Caches/electron-builder/` をクリアして DMG ビルドのキャッシュ問題も解消
+
+### 結果
+`dist/sign-flow-1.0.2-arm64.dmg` (125MB) の生成に成功。
+
+### 注意点
+署名なしのため macOS の Gatekeeper で「開発元が確認できない」警告が出る場合がある。内部配布・開発用途では問題なし。Apple Developer ID での署名が必要な場合は別途設定が必要。
+
+---
+
+## 次に強化・追加する機能の候補
+
+1. **Apple Developer ID 署名の設定** — GitHub Actions の CI/CD で正式署名・公証(notarization)を行う設定
+2. **二重円スタイルの対応** — 本格的な印鑑らしい二重円デザインの追加
+3. **文字色・フォント変更** — 赤以外の色や明朝体/ゴシック体の選択機能
+4. **角印作成機能** — 四角い枠に会社名・役職を配置するスタイルの追加
+5. **印影サイズのプレビュー表示** — PDF上でのスタンプ実寸大イメージをプレビューで確認できる機能
