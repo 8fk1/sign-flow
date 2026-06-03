@@ -86,6 +86,17 @@ const newDocTypeName = document.getElementById("newDocTypeName");
 const addDocTypeBtn = document.getElementById("addDocTypeBtn");
 const masterDocTypeContainer = document.getElementById("masterDocTypeContainer");
 
+// 印影作成モーダル用DOM
+const createStampBtn = document.getElementById("createStampBtn");
+const stampCreateModal = document.getElementById("stampCreateModal");
+const stampCreateModalBg = document.getElementById("stampCreateModalBg");
+const stampCreateModalClose = document.getElementById("stampCreateModalClose");
+const stampCreateCanvas = document.getElementById("stampCreateCanvas");
+const stampCreateName = document.getElementById("stampCreateName");
+const stampCreateFilename = document.getElementById("stampCreateFilename");
+const stampCreateCancelBtn = document.getElementById("stampCreateCancelBtn");
+const stampCreateSaveBtn = document.getElementById("stampCreateSaveBtn");
+
 // アプリケーションの状態
 let loadedPdfFiles = [];
 let stampImages = [];
@@ -172,6 +183,53 @@ function getStampDimensions(stampFile) {
   // 縦横比が 0.8〜1.25 の範囲なら円形、それ以外は角丸長方形
   const borderRadius = (ratio >= 0.8 && ratio <= 1.25) ? "50%" : "4px";
   return { previewWidth, previewHeight, borderRadius, pdfWidth, pdfHeight };
+}
+
+// Canvas に丸印（赤・1重円・縦書き）を描画する
+function drawStampOnCanvas(canvas, name) {
+  const SIZE = 200;
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+
+  const cx = SIZE / 2;
+  const cy = SIZE / 2;
+  const radius = 88;
+  const color = '#cc0000';
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 7;
+  ctx.stroke();
+
+  const trimmed = name ? name.trim() : '';
+  if (!trimmed) {
+    ctx.fillStyle = '#ddaaaa';
+    ctx.font = "14px 'Hiragino Mincho ProN', serif";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('氏名を入力', cx, cy);
+    return;
+  }
+
+  const chars = Array.from(trimmed);
+  const innerHeight = radius * 1.6;
+  let fontSize = Math.floor(innerHeight / (chars.length * 1.1));
+  fontSize = Math.min(70, Math.max(14, fontSize));
+
+  ctx.fillStyle = color;
+  ctx.font = `bold ${fontSize}px 'Hiragino Mincho ProN', 'Yu Mincho', 'HGMinchoE', 'MS PMincho', 'Noto Serif JP', serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const lineHeight = fontSize * 1.1;
+  const totalHeight = lineHeight * chars.length;
+  const startY = cy - totalHeight / 2 + lineHeight / 2;
+
+  chars.forEach((char, i) => {
+    ctx.fillText(char, cx, startY + i * lineHeight);
+  });
 }
 
 // メタデータが未収集の印影画像の縦横比を非同期で取得して保存する
@@ -636,6 +694,80 @@ uploadStampBtn.addEventListener("click", async () => {
     tempImg.src = `file://${destPath}?t=${Date.now()}`;
   } catch (err) {
     alert("エラーが発生しました: " + err.message);
+  }
+});
+
+// --- 印影作成モーダル ---
+function openStampCreateModal() {
+  stampCreateName.value = '';
+  stampCreateFilename.value = '';
+  stampCreateFilename._userEdited = false;
+  drawStampOnCanvas(stampCreateCanvas, '');
+  stampCreateModal.classList.add('is-active');
+  stampCreateName.focus();
+}
+
+function closeStampCreateModal() {
+  stampCreateModal.classList.remove('is-active');
+}
+
+createStampBtn.addEventListener("click", openStampCreateModal);
+stampCreateModalClose.addEventListener("click", closeStampCreateModal);
+stampCreateModalBg.addEventListener("click", closeStampCreateModal);
+stampCreateCancelBtn.addEventListener("click", closeStampCreateModal);
+
+stampCreateName.addEventListener("input", () => {
+  drawStampOnCanvas(stampCreateCanvas, stampCreateName.value);
+  if (!stampCreateFilename._userEdited) {
+    stampCreateFilename.value = stampCreateName.value.trim();
+  }
+});
+
+stampCreateFilename.addEventListener("input", () => {
+  stampCreateFilename._userEdited = true;
+});
+
+stampCreateSaveBtn.addEventListener("click", () => {
+  const name = stampCreateName.value.trim();
+  const rawFilename = stampCreateFilename.value.trim();
+
+  if (!name) {
+    showToast("氏名を入力してください。", "error");
+    return;
+  }
+  if (!rawFilename) {
+    showToast("ファイル名を入力してください。", "error");
+    return;
+  }
+
+  const filename = rawFilename.endsWith('.png') ? rawFilename : rawFilename + '.png';
+
+  if (stampImages.includes(filename)) {
+    showToast(`「${filename}」は既に登録されています。別のファイル名を指定してください。`, "error");
+    return;
+  }
+
+  try {
+    if (!fs.existsSync(stampFolder)) {
+      fs.mkdirSync(stampFolder, { recursive: true });
+    }
+
+    const dataUrl = stampCreateCanvas.toDataURL('image/png');
+    const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+    const destPath = path.join(stampFolder, filename);
+    fs.writeFileSync(destPath, Buffer.from(base64, 'base64'));
+
+    stampImages.push(filename);
+    localStorage.setItem("stamp_images", JSON.stringify(stampImages));
+
+    stampMeta[filename] = { naturalWidth: 200, naturalHeight: 200 };
+    localStorage.setItem("stamp_meta", JSON.stringify(stampMeta));
+
+    closeStampCreateModal();
+    showToast(`印影「${path.basename(filename, '.png')}」を作成しました。`, "success");
+    renderMasterView();
+  } catch (err) {
+    showToast("印影の保存に失敗しました: " + err.message, "error");
   }
 });
 

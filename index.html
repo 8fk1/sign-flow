@@ -242,9 +242,14 @@
               <p class="label-title" style="margin-bottom:0;">新しい印影画像を追加 (PNG, JPG, GIF)</p>
             </div>
             <div class="column is-4">
-              <button id="uploadStampBtn" class="btn-submit" style="background: #475569;">
-                <i class="fa-solid fa-plus"></i> 画像を選択して登録
-              </button>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <button id="uploadStampBtn" class="btn-submit" style="background: #475569;">
+                  <i class="fa-solid fa-plus"></i> 画像を選択して登録
+                </button>
+                <button id="createStampBtn" class="btn-submit" style="background: #cc0000;">
+                  <i class="fa-solid fa-pen-nib"></i> テキストから新規作成
+                </button>
+              </div>
             </div>
           </div>
 
@@ -283,6 +288,47 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- 印影作成モーダル -->
+    <div id="stampCreateModal" class="modal">
+      <div class="modal-background" id="stampCreateModalBg"></div>
+      <div class="modal-card" style="width: 340px;">
+        <header class="modal-card-head" style="padding: 12px 20px;">
+          <p class="modal-card-title" style="font-size: 0.95rem; font-weight: 700;">
+            <i class="fa-solid fa-pen-nib"></i> 印影を新規作成
+          </p>
+          <button class="delete" id="stampCreateModalClose" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body" style="padding: 20px; background: #f8fafc;">
+          <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+            <canvas id="stampCreateCanvas" width="200" height="200"
+              style="width: 160px; height: 160px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;"></canvas>
+          </div>
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">
+              氏名（印面テキスト）
+            </label>
+            <input type="text" id="stampCreateName" class="input" placeholder="例: 山田太郎" maxlength="8" />
+          </div>
+          <div>
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">
+              保存ファイル名
+            </label>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="text" id="stampCreateFilename" class="input" placeholder="例: 山田太郎" style="flex: 1;" />
+              <span style="font-size: 0.8rem; color: var(--text-secondary); flex-shrink: 0;">.png</span>
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot" style="padding: 12px 20px; justify-content: flex-end; gap: 8px;">
+          <button class="button" id="stampCreateCancelBtn" style="font-size: 0.85rem;">キャンセル</button>
+          <button class="button" id="stampCreateSaveBtn"
+            style="font-size: 0.85rem; background: #cc0000; border-color: #cc0000; color: white; font-weight: 600;">
+            <i class="fa-solid fa-floppy-disk"></i> 作成・保存
+          </button>
+        </footer>
+      </div>
     </div>
 
     <!-- 座標測定モーダル -->
