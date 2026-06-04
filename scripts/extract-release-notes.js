@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 try {
-  const historyPath = path.join(__dirname, '..', 'HISTORY.md');
+  const historyPath = path.join(__dirname, '..', 'private', 'HISTORY.md');
   const outputPath = path.join(__dirname, '..', 'release-notes.md');
 
   if (!fs.existsSync(historyPath)) {
