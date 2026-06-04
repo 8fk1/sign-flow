@@ -11,7 +11,8 @@
     "app:dir": "node scripts/extract-release-notes.js && node scripts/generate-licenses.js && electron-builder --dir",
     "app:dist": "node scripts/extract-release-notes.js && node scripts/generate-licenses.js && electron-builder",
     "build:win": "node scripts/extract-release-notes.js && node scripts/generate-licenses.js && electron-builder build --win --publish never",
-    "release:win": "node scripts/extract-release-notes.js && node scripts/generate-licenses.js && electron-builder build --win --publish always"
+    "release:win": "node scripts/extract-release-notes.js && node scripts/generate-licenses.js && electron-builder build --win --publish always",
+    "release": "node scripts/release.js"
   },
   "build": {
     "appId": "net.katsubemakto.blog.app.my",
@@ -24,7 +25,7 @@
       "index.html",
       "package.json",
       "static/**/*",
-      "HISTORY.md",
+      "private/HISTORY.md",
       "LICENSES.txt"
     ],
     "mac": {

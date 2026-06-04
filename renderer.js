@@ -3005,7 +3005,7 @@ function loadAppHistory() {
   if (!container) return;
 
   try {
-    const historyPath = path.join(__dirname, "HISTORY.md");
+    const historyPath = path.join(__dirname, "private", "HISTORY.md");
     if (!fs.existsSync(historyPath)) {
       container.textContent = "更新履歴ファイル (HISTORY.md) が見つかりません。";
       return;
