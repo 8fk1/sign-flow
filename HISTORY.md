@@ -220,3 +220,105 @@ macOS 15 (Sequoia) で導入された `com.apple.provenance` 拡張属性が、E
 3. **文字色・フォント変更** — 赤以外の色や明朝体/ゴシック体の選択機能
 4. **角印作成機能** — 四角い枠に会社名・役職を配置するスタイルの追加
 5. **印影サイズのプレビュー表示** — PDF上でのスタンプ実寸大イメージをプレビューで確認できる機能
+
+---
+
+## 2026-06-04 10:16
+
+### Situation / 指示
+`npm run app:dist` 実行時に `node_modules` から Electron バージョンが計算できないエラーおよび `description is missed` 警告により、Windowsでのアプリビルドに失敗する問題の解消。
+
+### Actions Taken / 実行した操作
+1. クリーンな依存関係インストールのため、リポジトリルートで `npm ci` を実行。
+2. `package.json` の `description` フィールドが空文字列になっていたため、具体的な説明を追加。
+3. `npm run app:dist` を再実行し、インストーラー（`dist/sign-flow Setup 1.0.2.exe`）が正常にビルドできることを確認。
+
+### Cause and Action (トラブルシューティング時) / 原因と対処
+- **原因**: 
+  1. プロジェクト内に `node_modules` がインストールされておらず、かつ `package.json` での `electron` のバージョンが `^38.2.0` と範囲指定されていたため、ビルド時に参照すべき Electron バージョンが自動検出できなかった。
+  2. `package.json` の `description` フィールドが未設定（空文字列）だった。
+- **対処**:
+  1. `npm ci` を実行して `electron` などの依存モジュールをインストール。
+  2. `package.json` に説明文を追加。
+
+---
+
+## 2026-06-04 11:25
+
+### Situation / 指示
+1. アプリアップデート時のインストーラー画面の起動を抑止し、サイレントアップデートに変更する。
+2. アップデートファイルを裏でダウンロードしている進捗状況を、プログレスバーなどで視覚的に表現する。
+3. マスタ設定画面における各設定セクション（印影画像の管理、アプリ情報・アップデート、PDF出力の微調整、書類種別の管理）の不適切な入れ子構造（レイヤー崩れ）を吟味して再構成する。
+
+### Actions Taken / 実行した操作
+1. [package.json](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/package.json) 内の `build.nsis` 設定を `"oneClick": true`, `"allowToChangeInstallationDirectory": false`, `"perMachine": false` に更新。
+2. [index.html](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/index.html) の設定タブ（`#tabContentMaster`）配下の閉じタグズレによる入れ子を解消し、4つの設定ブロックがそれぞれ独立した `card-panel` カードとしてフラットに配置されるようレイアウト構造を再構成。
+3. [index.html](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/index.html) の「アプリ情報・アップデート」カード内にダウンロード進捗を示すプログレスバー用のDOM（`#updateProgressContainer`, `#updateProgressBar`）を追加。
+4. [renderer.js](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/renderer.js) にて追加した進捗バーDOMへの参照を取得し、`update-download-progress` / `update-downloaded` / `update-error` / `update-not-available` イベントに合わせて、進捗率の更新およびプログレスバー表示のオン・オフを制御するロジックを実装。
+5. `npx playwright test` を実行し、全12件の自動テストが正常に通過することを確認。
+6. [package.json](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/package.json) のバージョンを `1.0.4` に引き上げ、自動パブリッシュコマンド（`npm run release:win`）を実行して、GitHub Releases 上にサイレントアップデート対応の `v1.0.4` リリース（アセットおよび `latest.yml`）をアップロード。
+
+### Cause and Action (トラブルシューティング時) / 原因と対処
+- **原因**: 
+  - インストーラー（NSIS）が個別インストール位置の選択などを許可する設定（`oneClick: false`）になっていたため、アップデート時にも都度インストーラーウィザードが前面に立ち上がっていた。
+  - HTMLマークアップ上の `</div>` 閉じタグの配置ミスにより、いくつかの設定カードが別のカード内に不適切にネストされていた。
+- **対処**:
+  - `oneClick: true` への変更とインストール先を `AppData/Local` に固定することで完全サイレントアップデート化。
+  - タグ構造を吟味し、完全にフラットな4枚の独立カード型レイアウトに整理した。
+  - `electron-updater` の `download-progress` イベントから取得した進捗率 `progress.percent` を元に、Bulmaのプログレスバー要素をリアルタイムで操作するよう更新した。
+
+---
+
+## 2026-06-04 11:35 — v1.0.5 更新履歴表示とリネームバグ修正
+
+### Situation / 指示
+1. 登録済み印影画像のリネーム時に名前にドットが含まれていると、ドット以降（拡張子）が欠落して画像が一覧から消えるバグを修正する。
+2. 過去の更新内容をアプリ側から確認できる「更新履歴」機能を追加する。
+3. 問題がなければ新バージョン `1.0.5` としてビルド・パブリッシュする。
+
+### Actions Taken / 実行した操作
+1. [renderer.js](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/renderer.js) のリネーム保存処理（`commit`）内にて、`path.extname` による誤認識を防ぐため、入力文字列が元の拡張子で終わっているかをチェックするロジック（`endsWith`）に修正。これにより、`山田.太郎` のようにドットを含む名前でも正しくリネーム可能にし、一覧から欠落するバグを解消。
+2. [package.json](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/package.json) の `files` 設定に `"HISTORY.md"` を追加し、パッケージ内に履歴ファイルを同梱。
+3. [index.html](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/index.html) の設定タブの下部に更新履歴を表示するパネル（`#appHistoryContainer`）を追加。
+4. [renderer.js](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/renderer.js) に `loadAppHistory()` を実装。ローカルの `HISTORY.md` を読み込んで簡易マークダウンパーサーでHTMLにパースし、設定画面を開いた時に描画するよう対応。
+5. `npx playwright test` を実行し、全12件の自動テストが正常に通過することを確認。
+6. 自動パブリッシュコマンド（`npm run release:win`）を実行して、GitHub Releases上に `v1.0.5` をリリース。
+
+### Cause and Action (トラブルシューティング時) / 原因と対処
+- **原因**: 
+  - 印影名に `山田.太郎` のようなドットが含まれると、`path.extname` が `.太郎` を拡張子と判定してしまい、本来の拡張子 `.png` を補完せずリネームが実行されていた。そのため、画像検索時の拡張子フィルタ（`.png` や `.jpg` 等）から漏れて一覧から消えていた。
+- **対処**:
+  - `newBase.toLowerCase().endsWith(ext.toLowerCase())` の判定に修正し、本来の拡張子で終わっていない限り、常に元の拡張子を強制的に末尾に結合するようにロジックを修正。
+
+---
+
+## 2026-06-04 11:39 — v1.0.6 リリースノートの自動同期機能
+
+### Situation / 指示
+1. パブリッシュビルド実行時に、`HISTORY.md` の最新セクションの内容を GitHub Releases の「Release notes（リリース内容説明文）」に自動で抽出・反映できるようにする。
+2. 設定変更を完了させ、新バージョン `1.0.6` としてビルド・パブリッシュする。
+
+### Actions Taken / 実行した操作
+1. [scripts/extract-release-notes.js](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/scripts/extract-release-notes.js) を作成。`HISTORY.md` の最新日付のログセクションを自動抽出して `release-notes.md` 一時ファイルを生成するNode.jsスクリプトを記述。
+2. [package.json](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/package.json) の `"release:win"` コマンドの戦闘に、上記抽出スクリプトの実行処理を追加。
+3. [package.json](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/package.json) の `build.publish` 設定に `"releaseNotesFile": "release-notes.md"` を追加し、パブリッシュ時に自動同期されるよう設定。
+4. [.gitignore](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/.gitignore) に `release-notes.md` を追加してgit追跡対象外に設定。
+5. `npx playwright test` による自動テストの通過を確認後、`npm run release:win` コマンドで `v1.0.6` の自動パブリッシュ（リリースノート自動適用）を実行。
+
+### Cause and Action (トラブルシューティング時) / 原因と対処
+- **原因**: 
+  - 手動パブリッシュや従来のパブリッシュ方法では、GitHub Releaseのリリースノート（説明文）が空のままであり、`HISTORY.md` の内容と同じログを毎回ブラウザでコピペ入力する二重管理の手間が発生していた。
+- **対処**:
+  - `releaseNotesFile` によるリリースノート自動指定オプションと、ビルド前に `HISTORY.md` の最新ブロックを切り出すJSスクリプトを連携させ、完全に自動で同期されるビルドフローを構築した。
+
+---
+
+## 2026-06-04 12:00 — v1.0.7 更新履歴の表示順序の修正
+
+### Situation / 指示
+1. アプリ内の「更新履歴」で最新の変更履歴が一番上に表示されない問題を修正する。
+2. 正しいリリースノートを反映した最新バージョンをパブリッシュする。
+
+### Actions Taken / 実行した操作
+1. [renderer.js](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/renderer.js) の `loadAppHistory()` を修正し、`HISTORY.md` の各セクションを「## YYYY-MM-DD」で分割後、逆順（最新が上）にソートして結合した上でHTMLに描画するように対応。
+2. [package.json](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/package.json) のバージョンを `1.0.7` に引き上げ。

@@ -1,7 +1,7 @@
 {
   "name": "sign-flow",
   "productName": "sign-flow",
-  "version": "1.0.2",
+  "version": "1.0.7",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -10,12 +10,21 @@
     "app:dir": "electron-builder --dir",
     "app:dist": "electron-builder",
     "build:win": "electron-builder build --win --publish never",
-    "release:win": "electron-builder build --win --publish always"
+    "release:win": "node scripts/extract-release-notes.js && electron-builder build --win --publish always"
   },
   "build": {
     "appId": "net.katsubemakto.blog.app.my",
     "npmRebuild": false,
     "afterPack": "./scripts/afterPack.js",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "package.json",
+      "static/**/*",
+      "HISTORY.md"
+    ],
     "mac": {
       "target": "dmg",
       "icon": "static/img/icon/icon.png",
@@ -28,8 +37,12 @@
       "icon": "static/img/icon/app.ico"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "perMachine": false
+    },
+    "releaseInfo": {
+      "releaseNotesFile": "release-notes.md"
     },
     "publish": {
       "provider": "github",
@@ -41,7 +54,7 @@
   "keywords": [],
   "author": "DESKTOP-RQTS4S9 <fujiwarayuuki@summitsystem.co.jp>",
   "license": "ISC",
-  "description": "",
+  "description": "Sign Flow application for stamping PDFs.",
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "electron": "^38.2.0",

@@ -1,430 +1,444 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SignFlow - Smart PDF Stamping Tool</title>
-    <link
-      rel="shortcut icon"
-      href="./static/img/icon/32x32.ico"
-      type="image/x-icon"
-    />
-    <link rel="stylesheet" href="./static/css/bulma.min.css" />
-    <link rel="stylesheet" href="./static/css/style.css" />
-    <script
-      src="https://kit.fontawesome.com/a4ac748951.js"
-      crossorigin="anonymous"
-    ></script>
-  </head>
-  <body>
-    <div class="container is-fluid">
-      <header class="hero">
-        <div class="hero-body">
-          <div class="hero-text">
-            <h1 class="title">SignFlow</h1>
-            <p class="subtitle">PDF書類への押印と署名ワークフローをスマートに。</p>
-          </div>
-          <button id="themeToggleBtn" class="theme-toggle-btn" title="ライト/ダークモード切り替え">
-            <i class="fa-solid fa-moon"></i>
-          </button>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SignFlow - Smart PDF Stamping Tool</title>
+  <link rel="shortcut icon" href="./static/img/icon/32x32.ico" type="image/x-icon" />
+  <link rel="stylesheet" href="./static/css/bulma.min.css" />
+  <link rel="stylesheet" href="./static/css/style.css" />
+  <script src="https://kit.fontawesome.com/a4ac748951.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <div class="container is-fluid">
+    <header class="hero">
+      <div class="hero-body">
+        <div class="hero-text">
+          <h1 class="title">SignFlow</h1>
+          <p class="subtitle">PDF書類への押印と署名ワークフローをスマートに。</p>
         </div>
-      </header>
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="ライト/ダークモード切り替え">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </header>
 
-      <!-- タブナビゲーション -->
-      <nav class="tab-navigation">
-        <button id="tabBtnStamp" class="tab-btn is-active">押印処理</button>
-        <button id="tabBtnMaster" class="tab-btn">設定・マスタ管理</button>
-      </nav>
+    <!-- タブナビゲーション -->
+    <nav class="tab-navigation">
+      <button id="tabBtnStamp" class="tab-btn is-active">押印処理</button>
+      <button id="tabBtnMaster" class="tab-btn">設定・マスタ管理</button>
+    </nav>
 
-      <!-- 1. 押印処理メインタブ -->
-      <div id="tabContentStamp" class="tab-content">
-        <!-- ファイル選択エリア (改善版) -->
-        <div class="card-panel">
-          <div class="drop-container">
-            <div id="dropArea" class="drop-zone-large">
-              <span class="file-icon">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
-              </span>
-              <p class="drop-title">PDFファイルをドラッグ＆ドロップ</p>
-              <p class="drop-subtitle">またはクリックしてファイルを選択</p>
-              <input
-                class="file-input"
-                type="file"
-                name="pdfFiles"
-                id="pdfInput"
-                accept="application/pdf"
-                multiple
-              />
+    <!-- 1. 押印処理メインタブ -->
+    <div id="tabContentStamp" class="tab-content">
+      <!-- ファイル選択エリア (改善版) -->
+      <div class="card-panel">
+        <div class="drop-container">
+          <div id="dropArea" class="drop-zone-large">
+            <span class="file-icon">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+            </span>
+            <p class="drop-title">PDFファイルをドラッグ＆ドロップ</p>
+            <p class="drop-subtitle">またはクリックしてファイルを選択</p>
+            <input class="file-input" type="file" name="pdfFiles" id="pdfInput" accept="application/pdf" multiple />
+          </div>
+
+          <!-- 選択されたファイルの一覧 (グリッドカード形式) -->
+          <div id="fileListWrapper" class="file-list-wrapper hidden">
+            <div
+              style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--panel-border);">
+              <p class="label-title" style="margin-bottom:0;">アップロード済みのPDF</p>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button id="clearAllFilesBtn" class="btn-submit"
+                  style="background: #94a3b8; padding: 2px 8px; font-size: 0.75rem; height: auto; width: auto; font-weight: 500;">一括クリア</button>
+                <span id="fileCountBadge" class="file-count-badge">0 件</span>
+              </div>
             </div>
-
-            <!-- 選択されたファイルの一覧 (グリッドカード形式) -->
-            <div id="fileListWrapper" class="file-list-wrapper hidden">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--panel-border);">
-                <p class="label-title" style="margin-bottom:0;">アップロード済みのPDF</p>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <button id="clearAllFilesBtn" class="btn-submit" style="background: #94a3b8; padding: 2px 8px; font-size: 0.75rem; height: auto; width: auto; font-weight: 500;">一括クリア</button>
-                  <span id="fileCountBadge" class="file-count-badge">0 件</span>
-                </div>
-              </div>
-              <div id="fileGrid" class="file-grid">
-                <!-- 動的にファイルカードが生成される -->
-              </div>
+            <div id="fileGrid" class="file-grid">
+              <!-- 動的にファイルカードが生成される -->
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="card-panel">
-          <p class="label-title">処理モード</p>
-          <div class="mode-switch">
-            <label class="radio">
-              <input type="radio" id="radioAll" name="mode" checked disabled />
-              一括押印
-            </label>
-            <label class="radio">
-              <input type="radio" id="radioIndividual" name="mode" disabled />
-              個別押印（書類種別）
-            </label>
-            <label class="radio">
-              <input type="radio" id="radioVisual" name="mode" disabled />
-              個別押印（ビジュアル）
-            </label>
+      <div class="card-panel">
+        <p class="label-title">処理モード</p>
+        <div class="mode-switch">
+          <label class="radio">
+            <input type="radio" id="radioAll" name="mode" checked disabled />
+            一括押印
+          </label>
+          <label class="radio">
+            <input type="radio" id="radioIndividual" name="mode" disabled />
+            個別押印（書類種別）
+          </label>
+          <label class="radio">
+            <input type="radio" id="radioVisual" name="mode" disabled />
+            個別押印（ビジュアル）
+          </label>
+        </div>
+
+        <!-- 一括設定セクション -->
+        <section id="sectionAll" class="hidden">
+          <div class="columns">
+            <div class="column is-12">
+              <p class="label-title">書類種別の選択</p>
+              <div class="select">
+                <select id="selectDocType">
+                  <option value="" selected>書類種別を選択してください</option>
+                </select>
+              </div>
+            </div>
           </div>
 
-          <!-- 一括設定セクション -->
-          <section id="sectionAll" class="hidden">
-            <div class="columns">
-              <div class="column is-12">
-                <p class="label-title">書類種別の選択</p>
-                <div class="select">
-                  <select id="selectDocType">
-                    <option value="" selected>書類種別を選択してください</option>
-                  </select>
+          <!-- 動的に書類種別の設定を表示する領域 -->
+          <div id="docTypeSettingsArea" style="margin-top: 10px;">
+            <p class="text-center" style="color: var(--text-secondary); font-size: 0.8rem; padding: 10px;">
+              書類種別を選択すると、設定された座標と印影が表示されます</p>
+          </div>
+        </section>
+
+        <!-- 個別設定セクション -->
+        <section id="sectionIndividual" class="hidden">
+          <!-- 各ファイル毎のセレクトボックスが動的生成される -->
+        </section>
+
+        <!-- 個別ビジュアル連続押印セクション -->
+        <section id="sectionVisual" class="hidden">
+          <div class="preview-container">
+
+            <!-- 進捗 + 座標表示 -->
+            <div class="visual-progress-row">
+              <p id="visualProgress" class="label-title" style="margin-bottom:0;">PDF 1 / 1</p>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span id="zoomIndicator" title="Ctrl/Cmd+↑↓ / Ctrl/Cmd+ホイールで拡大縮小"
+                  style="font-size: 0.73rem; color: var(--text-secondary); font-weight: 500; white-space: nowrap; cursor: default; user-select: none;">100%</span>
+                <div id="visualPosFields" class="hidden"
+                  style="display: flex; gap: 12px; font-size: 0.75rem; color: var(--text-secondary);">
+                  <span>X: <strong id="visualXVal" style="color: var(--accent-color);">0</strong></span>
+                  <span>Y: <strong id="visualYVal" style="color: var(--accent-color);">0</strong></span>
                 </div>
               </div>
             </div>
 
-            <!-- 動的に書類種別の設定を表示する領域 -->
-            <div id="docTypeSettingsArea" style="margin-top: 10px;">
-              <p class="text-center" style="color: var(--text-secondary); font-size: 0.8rem; padding: 10px;">書類種別を選択すると、設定された座標と印影が表示されます</p>
+            <!-- ファイル名リネーム行 -->
+            <div class="visual-rename-row">
+              <i class="fa-regular fa-file-pdf" style="color: #ef4444; font-size: 1rem; flex-shrink:0;"></i>
+              <input id="visualFileNameInput" type="text" class="input" placeholder="出力ファイル名"
+                style="flex:1; font-size:0.82rem; height:2em; border-color:#cbd5e1;" title="出力するファイル名（Enterで確定）" />
+              <span style="font-size:0.72rem; color:#94a3b8; flex-shrink:0; white-space:nowrap;">← 出力名を編集</span>
             </div>
-          </section>
 
-          <!-- 個別設定セクション -->
-          <section id="sectionIndividual" class="hidden">
-            <!-- 各ファイル毎のセレクトボックスが動的生成される -->
-          </section>
-
-          <!-- 個別ビジュアル連続押印セクション -->
-          <section id="sectionVisual" class="hidden">
-            <div class="preview-container">
-
-              <!-- 進捗 + 座標表示 -->
-              <div class="visual-progress-row">
-                <p id="visualProgress" class="label-title" style="margin-bottom:0;">PDF 1 / 1</p>
-                <div style="display: flex; align-items: center; gap: 12px;">
-                  <span id="zoomIndicator" title="Ctrl/Cmd+↑↓ / Ctrl/Cmd+ホイールで拡大縮小" style="font-size: 0.73rem; color: var(--text-secondary); font-weight: 500; white-space: nowrap; cursor: default; user-select: none;">100%</span>
-                  <div id="visualPosFields" class="hidden" style="display: flex; gap: 12px; font-size: 0.75rem; color: var(--text-secondary);">
-                    <span>X: <strong id="visualXVal" style="color: var(--accent-color);">0</strong></span>
-                    <span>Y: <strong id="visualYVal" style="color: var(--accent-color);">0</strong></span>
-                  </div>
+            <!-- プレビュー本体 + サイドバーコントロール -->
+            <div class="visual-body">
+              <!-- PDFプレビューエリア（スクロール対応ラッパー） -->
+              <div id="visualPreviewScrollWrapper" style="flex: 1; min-width: 0; overflow: auto;">
+                <div id="visualPreviewArea" class="preview-canvas-wrapper" style="flex: none; max-width: none;">
+                  <canvas id="pdfPreviewCanvas"
+                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></canvas>
                 </div>
               </div>
 
-              <!-- ファイル名リネーム行 -->
-              <div class="visual-rename-row">
-                <i class="fa-regular fa-file-pdf" style="color: #ef4444; font-size: 1rem; flex-shrink:0;"></i>
-                <input id="visualFileNameInput"
-                       type="text"
-                       class="input"
-                       placeholder="出力ファイル名"
-                       style="flex:1; font-size:0.82rem; height:2em; border-color:#cbd5e1;"
-                       title="出力するファイル名（Enterで確定）" />
-                <span style="font-size:0.72rem; color:#94a3b8; flex-shrink:0; white-space:nowrap;">← 出力名を編集</span>
-              </div>
-
-              <!-- プレビュー本体 + サイドバーコントロール -->
-              <div class="visual-body">
-                <!-- PDFプレビューエリア（スクロール対応ラッパー） -->
-                <div id="visualPreviewScrollWrapper" style="flex: 1; min-width: 0; overflow: auto;">
-                  <div id="visualPreviewArea" class="preview-canvas-wrapper" style="flex: none; max-width: none;">
-                    <canvas id="pdfPreviewCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></canvas>
+              <!-- 右サイドバー: 印影選択 + ナビゲーション -->
+              <div class="visual-sidebar">
+                <div class="visual-stamp-panel">
+                  <p class="label-title">配置する印影を選択</p>
+                  <div class="select" style="width: 100%; margin-bottom: 8px;">
+                    <select id="visualStampSelect" style="width: 100%;"></select>
                   </div>
+                  <button id="addVisualStampBtn" class="btn-submit" style="background: #475569;">
+                    <i class="fa-solid fa-plus"></i> 追加
+                  </button>
                 </div>
 
-                <!-- 右サイドバー: 印影選択 + ナビゲーション -->
-                <div class="visual-sidebar">
-                  <div class="visual-stamp-panel">
-                    <p class="label-title">配置する印影を選択</p>
-                    <div class="select" style="width: 100%; margin-bottom: 8px;">
-                      <select id="visualStampSelect" style="width: 100%;"></select>
-                    </div>
-                    <button id="addVisualStampBtn" class="btn-submit" style="background: #475569;">
-                      <i class="fa-solid fa-plus"></i> 追加
+                <!-- 日付テキスト追加パネル -->
+                <div class="visual-date-panel">
+                  <p class="label-title"><i class="fa-solid fa-calendar-days"></i> 日付テキスト</p>
+
+                  <!-- フォントサイズ -->
+                  <div style="display:flex; align-items:center; gap:4px; margin-bottom:8px;">
+                    <span style="font-size:0.72rem; color:#64748b; white-space:nowrap;">サイズ:</span>
+                    <input type="number" id="dateFontSizePt" class="input" value="12" min="6" max="48"
+                      style="height:2em !important; font-size:0.78rem !important; width:52px; flex-shrink:0;" />
+                    <span style="font-size:0.72rem; color:#64748b;">pt</span>
+                  </div>
+
+                  <!-- 年・月・日の個別追加 -->
+                  <div class="date-quick-row">
+                    <input type="number" id="dateYearInput" class="input date-part-input" placeholder="年" />
+                    <button id="addDateYearBtn" class="btn-submit date-part-btn">
+                      <i class="fa-solid fa-plus"></i> 年
+                    </button>
+                  </div>
+                  <div class="date-quick-row">
+                    <input type="number" id="dateMonthInput" class="input date-part-input" placeholder="月" />
+                    <button id="addDateMonthBtn" class="btn-submit date-part-btn">
+                      <i class="fa-solid fa-plus"></i> 月
+                    </button>
+                  </div>
+                  <div class="date-quick-row">
+                    <input type="number" id="dateDayInput" class="input date-part-input" placeholder="日" />
+                    <button id="addDateDayBtn" class="btn-submit date-part-btn">
+                      <i class="fa-solid fa-plus"></i> 日
                     </button>
                   </div>
 
-                  <!-- 日付テキスト追加パネル -->
-                  <div class="visual-date-panel">
-                    <p class="label-title"><i class="fa-solid fa-calendar-days"></i> 日付テキスト</p>
-
-                    <!-- フォントサイズ -->
-                    <div style="display:flex; align-items:center; gap:4px; margin-bottom:8px;">
-                      <span style="font-size:0.72rem; color:#64748b; white-space:nowrap;">サイズ:</span>
-                      <input type="number" id="dateFontSizePt" class="input" value="12" min="6" max="48"
-                             style="height:2em !important; font-size:0.78rem !important; width:52px; flex-shrink:0;" />
-                      <span style="font-size:0.72rem; color:#64748b;">pt</span>
-                    </div>
-
-                    <!-- 年・月・日の個別追加 -->
-                    <div class="date-quick-row">
-                      <input type="number" id="dateYearInput" class="input date-part-input" placeholder="年" />
-                      <button id="addDateYearBtn" class="btn-submit date-part-btn">
-                        <i class="fa-solid fa-plus"></i> 年
-                      </button>
-                    </div>
-                    <div class="date-quick-row">
-                      <input type="number" id="dateMonthInput" class="input date-part-input" placeholder="月" />
-                      <button id="addDateMonthBtn" class="btn-submit date-part-btn">
-                        <i class="fa-solid fa-plus"></i> 月
-                      </button>
-                    </div>
-                    <div class="date-quick-row">
-                      <input type="number" id="dateDayInput" class="input date-part-input" placeholder="日" />
-                      <button id="addDateDayBtn" class="btn-submit date-part-btn">
-                        <i class="fa-solid fa-plus"></i> 日
-                      </button>
-                    </div>
-
-                    <!-- 日付行として一括追加 -->
-                    <div style="border-top:1px solid #a7f3d0; margin-top:6px; padding-top:6px;">
-                      <button id="addDateRowBtn" class="btn-submit" style="background:#7c3aed; padding:5px 8px; font-size:0.75rem; width:100%; margin-bottom:6px;">
-                        <i class="fa-solid fa-calendar-days"></i> 年月日を一行で追加
-                      </button>
-                      <p style="font-size:0.68rem; color:#6b7280; line-height:1.4;">↑ 年・月・日を横一列に配置。間隔は要素内の ↔ 部分をドラッグで調整。</p>
-                    </div>
-
-                    <!-- 任意テキスト追加 -->
-                    <div style="border-top:1px solid #a7f3d0; margin-top:6px; padding-top:6px;">
-                      <div class="date-quick-row">
-                        <input type="text" id="dateCustomInput" class="input" placeholder="任意のテキスト（日本語可）"
-                               style="flex:1; height:2em !important; font-size:0.78rem !important;" />
-                        <button id="addDateCustomBtn" class="btn-submit date-part-btn">
-                          <i class="fa-solid fa-plus"></i>
-                        </button>
-                      </div>
-                    </div>
-
-                    <p style="font-size:0.68rem; color:#6b7280; margin-top:4px; line-height:1.4;">
-                      日本語・英数字ともPDFに書き込み可。<br>ダブルクリックでテキスト・サイズを編集。
+                  <!-- 日付行として一括追加 -->
+                  <div style="border-top:1px solid #a7f3d0; margin-top:6px; padding-top:6px;">
+                    <button id="addDateRowBtn" class="btn-submit"
+                      style="background:#7c3aed; padding:5px 8px; font-size:0.75rem; width:100%; margin-bottom:6px;">
+                      <i class="fa-solid fa-calendar-days"></i> 年月日を一行で追加
+                    </button>
+                    <p style="font-size:0.68rem; color:#6b7280; line-height:1.4;">↑ 年・月・日を横一列に配置。間隔は要素内の ↔ 部分をドラッグで調整。
                     </p>
                   </div>
 
-                  <div class="visual-nav-buttons">
-                    <button id="visualPrevBtn" class="btn-submit" style="background: #64748b;" disabled>前へ</button>
-                    <button id="visualNextBtn" class="btn-submit">配置を決定して次へ</button>
+                  <!-- 任意テキスト追加 -->
+                  <div style="border-top:1px solid #a7f3d0; margin-top:6px; padding-top:6px;">
+                    <div class="date-quick-row">
+                      <input type="text" id="dateCustomInput" class="input" placeholder="任意のテキスト（日本語可）"
+                        style="flex:1; height:2em !important; font-size:0.78rem !important;" />
+                      <button id="addDateCustomBtn" class="btn-submit date-part-btn">
+                        <i class="fa-solid fa-plus"></i>
+                      </button>
+                    </div>
                   </div>
+
+                  <p style="font-size:0.68rem; color:#6b7280; margin-top:4px; line-height:1.4;">
+                    日本語・英数字ともPDFに書き込み可。<br>ダブルクリックでテキスト・サイズを編集。
+                  </p>
+                </div>
+
+                <div class="visual-nav-buttons">
+                  <button id="visualPrevBtn" class="btn-submit" style="background: #64748b;" disabled>前へ</button>
+                  <button id="visualNextBtn" class="btn-submit">配置を決定して次へ</button>
                 </div>
               </div>
-
             </div>
-          </section>
+
+          </div>
+        </section>
+      </div>
+
+      <div style="margin-top: 10px;">
+        <button id="stampPdfBtn" class="btn-submit" style="padding: 12px 20px; font-size: 0.95rem;" disabled>
+          <i class="fa-solid fa-file-signature"></i> 保存先を指定してPDFを出力
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. 設定・マスタ管理タブ -->
+    <div id="tabContentMaster" class="tab-content hidden">
+      <!-- 印影画像管理 -->
+      <div class="card-panel">
+        <h2 class="master-section-title">印影画像の管理</h2>
+        <div class="columns is-vcentered">
+          <div class="column is-8">
+            <p class="label-title" style="margin-bottom:0;">新しい印影画像を追加 (PNG, JPG, GIF)</p>
+          </div>
+          <div class="column is-4">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <button id="uploadStampBtn" class="btn-submit" style="background: #475569;">
+                <i class="fa-solid fa-plus"></i> 画像を選択して登録
+              </button>
+              <button id="createStampBtn" class="btn-submit" style="background: #cc0000;">
+                <i class="fa-solid fa-pen-nib"></i> テキストから新規作成
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div style="margin-top: 10px;">
-          <button id="stampPdfBtn" class="btn-submit" style="padding: 12px 20px; font-size: 0.95rem;" disabled>
-            <i class="fa-solid fa-file-signature"></i> 保存先を指定してPDFを出力
-          </button>
+        <div style="margin-top: 12px;">
+          <p class="label-title">登録済みの印影画像一覧</p>
+          <div id="masterStampList" class="stamp-grid" style="max-height: 300px; overflow-y: auto; padding: 4px;">
+            <!-- 登録画像リスト -->
+          </div>
         </div>
       </div>
 
-      <!-- 2. 設定・マスタ管理タブ -->
-      <div id="tabContentMaster" class="tab-content hidden">
-        <!-- 印影画像管理 -->
-        <div class="card-panel">
-          <h2 class="master-section-title">印影画像の管理</h2>
-          <div class="columns is-vcentered">
-            <div class="column is-8">
-              <p class="label-title" style="margin-bottom:0;">新しい印影画像を追加 (PNG, JPG, GIF)</p>
-            </div>
-            <div class="column is-4">
-              <div style="display: flex; flex-direction: column; gap: 6px;">
-                <button id="uploadStampBtn" class="btn-submit" style="background: #475569;">
-                  <i class="fa-solid fa-plus"></i> 画像を選択して登録
-                </button>
-                <button id="createStampBtn" class="btn-submit" style="background: #cc0000;">
-                  <i class="fa-solid fa-pen-nib"></i> テキストから新規作成
-                </button>
-              </div>
-            </div>
+      <!-- アプリ情報・アップデート -->
+      <div class="card-panel">
+        <h2 class="master-section-title">アプリ情報・アップデート</h2>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">
+              現在のバージョン: <strong id="currentAppVersion" style="color: var(--text-primary);">-</strong>
+            </span>
+            <span id="updateVersionBadge"
+              style="display: none; font-size: 0.72rem; font-weight: 600; background: var(--accent-color); color: #fff; padding: 2px 8px; border-radius: 10px;"></span>
           </div>
+          <button id="checkUpdateBtn" class="btn-submit"
+            style="background: #475569; padding: 6px 14px; font-size: 0.82rem; height: auto; width: auto;">
+            <i class="fa-solid fa-rotate"></i> アップデートを今すぐ確認
+          </button>
+        </div>
+        <!-- プログレスバー用コンテナ -->
+        <div id="updateProgressContainer" style="display: none; margin-top: 16px; background: #f8fafc; padding: 12px; border-radius: var(--border-radius); border: 1px solid var(--panel-border);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;">
+            <span><i class="fa-solid fa-cloud-arrow-down" style="color: var(--accent-color); margin-right: 4px;"></i> アップデートファイルをダウンロード中...</span>
+            <span id="updateProgressPercent" style="font-weight: 700; color: var(--accent-color);">0%</span>
+          </div>
+          <progress id="updateProgressBar" class="progress is-primary" value="0" max="100" style="height: 10px; margin-bottom: 0; background: #e2e8f0;"></progress>
+        </div>
+      </div>
 
-          <div style="margin-top: 12px;">
-            <p class="label-title">登録済みの印影画像一覧</p>
-            <div id="masterStampList" class="stamp-grid" style="max-height: 300px; overflow-y: auto; padding: 4px;">
-              <!-- 登録画像リスト -->
-            </div>
+      <!-- PDF出力微調整設定 -->
+      <div class="card-panel">
+        <h2 class="master-section-title">PDF出力の微調整</h2>
+        <div class="columns is-mobile is-vcentered" style="margin-bottom: 8px;">
+          <div class="column is-8">
+            <p class="label-title" style="margin-bottom:0;">日付・年月日テキストの出力位置補正 (X方向 / 右方向へのシフト pt)</p>
+            <p style="font-size:0.75rem; color:var(--text-secondary);">
+              PDF出力時に、指定した数値（pt）分だけ日付テキスト・年月日行を右にずらして描画します（左にずらす場合はマイナス値を入力）。</p>
+          </div>
+          <div class="column is-4">
+            <input type="number" id="dateXOffsetPt" class="input" placeholder="0" value="0" step="0.5" />
           </div>
         </div>
+      </div>
 
-<<<<<<< Updated upstream
-        <!-- アプリ情報・アップデート -->
-        <div class="card-panel">
-          <h2 class="master-section-title">アプリ情報・アップデート</h2>
-          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">
-                現在のバージョン: <strong id="currentAppVersion" style="color: var(--text-primary);">-</strong>
-              </span>
-              <span id="updateVersionBadge"
-                style="display: none; font-size: 0.72rem; font-weight: 600; background: var(--accent-color); color: #fff; padding: 2px 8px; border-radius: 10px;"></span>
-            </div>
-            <button id="checkUpdateBtn" class="btn-submit" style="background: #475569; padding: 6px 14px; font-size: 0.82rem; height: auto; width: auto;">
-              <i class="fa-solid fa-rotate"></i> アップデートを今すぐ確認
-            </button>
-=======
-        <!-- PDF出力微調整設定 -->
-        <div class="card-panel">
-          <h2 class="master-section-title">PDF出力の微調整</h2>
+      <!-- 書類種別管理 -->
+      <div class="card-panel">
+        <h2 class="master-section-title">書類種別の管理</h2>
+
+        <!-- 新規作成フォーム -->
+        <div
+          style="background: #f8fafc; padding: 12px; border-radius: var(--border-radius); border: 1px solid var(--panel-border); margin-bottom: 16px;">
+          <p class="label-title" style="color: var(--accent-color);">書類種別の新規登録</p>
           <div class="columns is-mobile is-vcentered" style="margin-bottom: 8px;">
             <div class="column is-8">
-              <p class="label-title" style="margin-bottom:0;">日付・年月日テキストの出力位置補正 (X方向 / 右方向へのシフト pt)</p>
-              <p style="font-size:0.75rem; color:var(--text-secondary);">PDF出力時に、指定した数値（pt）分だけ日付テキスト・年月日行を右にずらして描画します（左にずらす場合はマイナス値を入力）。</p>
+              <input type="text" id="newDocTypeName" class="input" placeholder="書類名 (例: 納品書)" />
             </div>
             <div class="column is-4">
-              <input type="number" id="dateXOffsetPt" class="input" placeholder="0" value="0" step="0.5" />
+              <button id="addDocTypeBtn" class="btn-submit">作成</button>
             </div>
->>>>>>> Stashed changes
           </div>
         </div>
 
-        <!-- 書類種別管理 -->
-        <div class="card-panel">
-          <h2 class="master-section-title">書類種別の管理</h2>
-
-          <!-- 新規作成フォーム -->
-          <div style="background: #f8fafc; padding: 12px; border-radius: var(--border-radius); border: 1px solid var(--panel-border); margin-bottom: 16px;">
-            <p class="label-title" style="color: var(--accent-color);">書類種別の新規登録</p>
-            <div class="columns is-mobile is-vcentered" style="margin-bottom: 8px;">
-              <div class="column is-8">
-                <input type="text" id="newDocTypeName" class="input" placeholder="書類名 (例: 納品書)" />
-              </div>
-              <div class="column is-4">
-                <button id="addDocTypeBtn" class="btn-submit">作成</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 書類種別一覧 -->
-          <div>
-            <p class="label-title">登録済みの書類種別一覧</p>
-            <div id="masterDocTypeContainer">
-              <!-- 書類種別の個別ルール編集UIがリスト表示される -->
-            </div>
+        <!-- 書類種別一覧 -->
+        <div>
+          <p class="label-title">登録済みの書類種別一覧</p>
+          <div id="masterDocTypeContainer">
+            <!-- 書類種別の個別ルール編集UIがリスト表示される -->
           </div>
         </div>
       </div>
 
-    </div>
-
-    <!-- 印影作成モーダル -->
-    <div id="stampCreateModal" class="modal">
-      <div class="modal-background" id="stampCreateModalBg"></div>
-      <div class="modal-card" style="width: 340px;">
-        <header class="modal-card-head" style="padding: 12px 20px;">
-          <p class="modal-card-title" style="font-size: 0.95rem; font-weight: 700;">
-            <i class="fa-solid fa-pen-nib"></i> 印影を新規作成
-          </p>
-          <button class="delete" id="stampCreateModalClose" aria-label="close"></button>
-        </header>
-        <section class="modal-card-body" style="padding: 20px; background: #f8fafc;">
-          <div style="display: flex; justify-content: center; margin-bottom: 16px;">
-            <canvas id="stampCreateCanvas" width="200" height="200"
-              style="width: 160px; height: 160px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;"></canvas>
-          </div>
-          <div style="margin-bottom: 12px;">
-            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">
-              氏名（印面テキスト）
-            </label>
-            <input type="text" id="stampCreateName" class="input" placeholder="例: 山田太郎" maxlength="8" />
-          </div>
-          <div>
-            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">
-              保存ファイル名
-            </label>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <input type="text" id="stampCreateFilename" class="input" placeholder="例: 山田太郎" style="flex: 1;" />
-              <span style="font-size: 0.8rem; color: var(--text-secondary); flex-shrink: 0;">.png</span>
-            </div>
-          </div>
-        </section>
-        <footer class="modal-card-foot" style="padding: 12px 20px; justify-content: flex-end; gap: 8px;">
-          <button class="button" id="stampCreateCancelBtn" style="font-size: 0.85rem;">キャンセル</button>
-          <button class="button" id="stampCreateSaveBtn"
-            style="font-size: 0.85rem; background: #cc0000; border-color: #cc0000; color: white; font-weight: 600;">
-            <i class="fa-solid fa-floppy-disk"></i> 作成・保存
-          </button>
-        </footer>
+      <!-- 更新履歴 -->
+      <div class="card-panel">
+        <h2 class="master-section-title"><i class="fa-solid fa-clock-rotate-left"></i> 更新履歴</h2>
+        <div id="appHistoryContainer" style="max-height: 300px; overflow-y: auto; background: #f8fafc; padding: 16px; border-radius: var(--border-radius); border: 1px solid var(--panel-border); font-size: 0.82rem; line-height: 1.6; color: var(--text-primary);">
+          更新履歴を読み込み中...
+        </div>
       </div>
-    </div>
 
-    <!-- 座標測定モーダル -->
-    <div id="measureModal" class="modal">
-      <div class="modal-background close-measure-modal"></div>
-      <div class="modal-card" style="width: auto; max-width: 90%; min-width: 520px;">
-        <header class="modal-card-head" style="padding: 12px 20px;">
-          <p class="modal-card-title" style="font-size: 0.95rem; font-weight: 700;"><i class="fa-solid fa-crosshairs"></i> 座標の自動測定 (テストPDF)</p>
-          <button class="delete close-measure-modal" aria-label="close"></button>
-        </header>
-        <section class="modal-card-body" style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; background: #f8fafc;">
-          <!-- テスト用PDF選択 (ドラッグ＆ドロップ対応) -->
-          <div id="measurePdfSelector" style="width: 100%; max-width: 480px;">
-            <div id="measureDropArea" class="drop-zone-small">
-              <span class="file-icon" style="font-size: 1.5rem; color: var(--accent-color); margin-bottom: 6px;">
-                <i class="fa-solid fa-file-pdf"></i>
-              </span>
-              <p class="drop-title" style="font-size: 0.85rem; margin-bottom: 2px;">テスト用PDFをドラッグ＆ドロップ</p>
-              <p class="drop-subtitle" style="font-size: 0.75rem;">またはクリックしてファイルを選択</p>
-              <input
-                type="file"
-                id="measurePdfInput"
-                accept="application/pdf"
-                class="file-input"
-              />
+      <!-- 印影作成モーダル -->
+      <div id="stampCreateModal" class="modal">
+        <div class="modal-background" id="stampCreateModalBg"></div>
+        <div class="modal-card" style="width: 340px;">
+          <header class="modal-card-head" style="padding: 12px 20px;">
+            <p class="modal-card-title" style="font-size: 0.95rem; font-weight: 700;">
+              <i class="fa-solid fa-pen-nib"></i> 印影を新規作成
+            </p>
+            <button class="delete" id="stampCreateModalClose" aria-label="close"></button>
+          </header>
+          <section class="modal-card-body" style="padding: 20px; background: #f8fafc;">
+            <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+              <canvas id="stampCreateCanvas" width="200" height="200"
+                style="width: 160px; height: 160px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;"></canvas>
             </div>
-          </div>
-
-          <!-- プレビューエリア (大型化対応) -->
-          <div id="measurePreviewWrapper" class="preview-canvas-wrapper hidden">
-            <canvas id="measurePdfCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></canvas>
-            <!-- 照準となるドラッグ可能な仮スタンプ -->
-            <div id="measureDraggable" class="draggable-stamp" style="left: 217px; top: 316px; border-color: #ef4444; background: rgba(239, 68, 68, 0.15); color: #ef4444; width: 45px; height: 45px; z-index: 10;">
-              <span>照準</span>
+            <div style="margin-bottom: 12px;">
+              <label
+                style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">
+                氏名（印面テキスト）
+              </label>
+              <input type="text" id="stampCreateName" class="input" placeholder="例: 山田太郎" maxlength="8" />
             </div>
-          </div>
-
-          <!-- 測定値表示 -->
-          <div id="measureResultFields" class="columns is-mobile hidden" style="width: 100%; max-width: 480px; margin-top: 8px; background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-            <div class="column is-6 text-center">
-              <p style="font-size: 0.85rem; color: var(--text-secondary);">計算された X 座標</p>
-              <p style="font-size: 1.25rem; font-weight: 700; color: var(--accent-color); margin-top: 4px;"><span id="measureXVal">0</span> pt</p>
+            <div>
+              <label
+                style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">
+                保存ファイル名
+              </label>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="text" id="stampCreateFilename" class="input" placeholder="例: 山田太郎" style="flex: 1;" />
+                <span style="font-size: 0.8rem; color: var(--text-secondary); flex-shrink: 0;">.png</span>
+              </div>
             </div>
-            <div class="column is-6 text-center" style="border-left: 1px solid #e2e8f0;">
-              <p style="font-size: 0.85rem; color: var(--text-secondary);">計算された Y 座標</p>
-              <p style="font-size: 1.25rem; font-weight: 700; color: var(--accent-color); margin-top: 4px;"><span id="measureYVal">0</span> pt</p>
-            </div>
-          </div>
-        </section>
-        <footer class="modal-card-foot" style="padding: 12px 20px; justify-content: flex-end; gap: 8px;">
-          <button class="button close-measure-modal" style="font-size: 0.85rem;">キャンセル</button>
-          <button id="applyMeasureBtn" class="button is-link" style="font-size: 0.85rem;" disabled>この座標を登録フォームへ適用</button>
-        </footer>
+          </section>
+          <footer class="modal-card-foot" style="padding: 12px 20px; justify-content: flex-end; gap: 8px;">
+            <button class="button" id="stampCreateCancelBtn" style="font-size: 0.85rem;">キャンセル</button>
+            <button class="button" id="stampCreateSaveBtn"
+              style="font-size: 0.85rem; background: #cc0000; border-color: #cc0000; color: white; font-weight: 600;">
+              <i class="fa-solid fa-floppy-disk"></i> 作成・保存
+            </button>
+          </footer>
+        </div>
       </div>
-    </div>
 
-    <!-- トースト通知用コンテナ -->
-    <div id="toastContainer" class="toast-container"></div>
+      <!-- 座標測定モーダル -->
+      <div id="measureModal" class="modal">
+        <div class="modal-background close-measure-modal"></div>
+        <div class="modal-card" style="width: auto; max-width: 90%; min-width: 520px;">
+          <header class="modal-card-head" style="padding: 12px 20px;">
+            <p class="modal-card-title" style="font-size: 0.95rem; font-weight: 700;"><i
+                class="fa-solid fa-crosshairs"></i> 座標の自動測定 (テストPDF)</p>
+            <button class="delete close-measure-modal" aria-label="close"></button>
+          </header>
+          <section class="modal-card-body"
+            style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; background: #f8fafc;">
+            <!-- テスト用PDF選択 (ドラッグ＆ドロップ対応) -->
+            <div id="measurePdfSelector" style="width: 100%; max-width: 480px;">
+              <div id="measureDropArea" class="drop-zone-small">
+                <span class="file-icon" style="font-size: 1.5rem; color: var(--accent-color); margin-bottom: 6px;">
+                  <i class="fa-solid fa-file-pdf"></i>
+                </span>
+                <p class="drop-title" style="font-size: 0.85rem; margin-bottom: 2px;">テスト用PDFをドラッグ＆ドロップ</p>
+                <p class="drop-subtitle" style="font-size: 0.75rem;">またはクリックしてファイルを選択</p>
+                <input type="file" id="measurePdfInput" accept="application/pdf" class="file-input" />
+              </div>
+            </div>
 
-    <script src="app.js"></script>
-    <script src="renderer.js"></script>
-  </body>
+            <!-- プレビューエリア (大型化対応) -->
+            <div id="measurePreviewWrapper" class="preview-canvas-wrapper hidden">
+              <canvas id="measurePdfCanvas"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></canvas>
+              <!-- 照準となるドラッグ可能な仮スタンプ -->
+              <div id="measureDraggable" class="draggable-stamp"
+                style="left: 217px; top: 316px; border-color: #ef4444; background: rgba(239, 68, 68, 0.15); color: #ef4444; width: 45px; height: 45px; z-index: 10;">
+                <span>照準</span>
+              </div>
+            </div>
+
+            <!-- 測定値表示 -->
+            <div id="measureResultFields" class="columns is-mobile hidden"
+              style="width: 100%; max-width: 480px; margin-top: 8px; background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+              <div class="column is-6 text-center">
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">計算された X 座標</p>
+                <p style="font-size: 1.25rem; font-weight: 700; color: var(--accent-color); margin-top: 4px;"><span
+                    id="measureXVal">0</span> pt</p>
+              </div>
+              <div class="column is-6 text-center" style="border-left: 1px solid #e2e8f0;">
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">計算された Y 座標</p>
+                <p style="font-size: 1.25rem; font-weight: 700; color: var(--accent-color); margin-top: 4px;"><span
+                    id="measureYVal">0</span> pt</p>
+              </div>
+            </div>
+          </section>
+          <footer class="modal-card-foot" style="padding: 12px 20px; justify-content: flex-end; gap: 8px;">
+            <button class="button close-measure-modal" style="font-size: 0.85rem;">キャンセル</button>
+            <button id="applyMeasureBtn" class="button is-link" style="font-size: 0.85rem;"
+              disabled>この座標を登録フォームへ適用</button>
+          </footer>
+        </div>
+      </div>
+
+      <!-- トースト通知用コンテナ -->
+      <div id="toastContainer" class="toast-container"></div>
+
+      <script src="app.js"></script>
+      <script src="renderer.js"></script>
+</body>
+
 </html>

@@ -101,6 +101,10 @@ const stampCreateSaveBtn = document.getElementById("stampCreateSaveBtn");
 const checkUpdateBtn = document.getElementById("checkUpdateBtn");
 const currentAppVersionEl = document.getElementById("currentAppVersion");
 const updateVersionBadgeEl = document.getElementById("updateVersionBadge");
+const updateProgressContainer = document.getElementById("updateProgressContainer");
+const updateProgressBar = document.getElementById("updateProgressBar");
+const updateProgressPercent = document.getElementById("updateProgressPercent");
+const appHistoryContainer = document.getElementById("appHistoryContainer");
 
 // テーマ切り替え
 const themeToggleBtn = document.getElementById("themeToggleBtn");
@@ -509,6 +513,7 @@ function renderMasterView() {
 
   // イベント登録
   registerMasterEvents();
+  loadAppHistory();
 }
 
 function registerMasterEvents() {
@@ -550,8 +555,8 @@ function registerMasterEvents() {
           return;
         }
 
-        // 拡張子が入力されていなければ元の拡張子を付与
-        let newName = path.extname(newBase) ? newBase : newBase + ext;
+        // 拡張子が入力されていなければ元の拡張子を付与（名前にドットが含まれていても拡張子と誤認しないようにする）
+        let newName = newBase.toLowerCase().endsWith(ext.toLowerCase()) ? newBase : newBase + ext;
 
         if (newName === oldName) {
           renderMasterView();
@@ -2872,6 +2877,9 @@ ipcRenderer.on('update-not-available', () => {
   if (_manualUpdateCheck) {
     showToast('すでに最新バージョンです。', 'success', 3000);
   }
+  if (updateProgressContainer) {
+    updateProgressContainer.style.display = 'none';
+  }
   _manualUpdateCheck = false;
 });
 
@@ -2881,6 +2889,11 @@ ipcRenderer.on('update-download-progress', (event, progress) => {
     updateVersionBadgeEl.style.display = 'inline-block';
     updateVersionBadgeEl.textContent = `ダウンロード中 ${pct}%`;
   }
+  if (updateProgressContainer && updateProgressBar && updateProgressPercent) {
+    updateProgressContainer.style.display = 'block';
+    updateProgressBar.value = pct;
+    updateProgressPercent.textContent = `${pct}%`;
+  }
 });
 
 ipcRenderer.on('update-downloaded', (event, info) => {
@@ -2889,6 +2902,9 @@ ipcRenderer.on('update-downloaded', (event, info) => {
     updateVersionBadgeEl.style.display = 'inline-block';
     updateVersionBadgeEl.style.background = '#16a34a';
     updateVersionBadgeEl.textContent = `v${info.version} 準備完了`;
+  }
+  if (updateProgressContainer) {
+    updateProgressContainer.style.display = 'none';
   }
   showToast(
     `v${info.version} のアップデートが準備できました。今すぐ再起動して適用しますか？`,
@@ -2905,6 +2921,9 @@ ipcRenderer.on('update-error', (event, message) => {
   if (_updateToast) { _updateToast.remove(); _updateToast = null; }
   if (_manualUpdateCheck) {
     showToast(`アップデートの確認に失敗しました。\nサーバに接続できない可能性があります。`, 'error', 5000);
+  }
+  if (updateProgressContainer) {
+    updateProgressContainer.style.display = 'none';
   }
   _manualUpdateCheck = false;
 });
@@ -2978,4 +2997,55 @@ function showToast(message, type = "info", duration = 3000, action = null) {
   }
 
   return toast;
+}
+
+// HISTORY.md から更新履歴をロードして表示する関数
+function loadAppHistory() {
+  const container = document.getElementById("appHistoryContainer");
+  if (!container) return;
+
+  try {
+    const historyPath = path.join(__dirname, "HISTORY.md");
+    if (!fs.existsSync(historyPath)) {
+      container.textContent = "更新履歴ファイル (HISTORY.md) が見つかりません。";
+      return;
+    }
+    const markdown = fs.readFileSync(historyPath, "utf-8");
+
+    // "## \d{4}-\d{2}-\d{2}" でセクション分割し、最初のヘッダーを除く履歴セクションを reverse()
+    const sections = markdown.split(/(?=## \d{4}-\d{2}-\d{2})/);
+    const header = sections[0];
+    const historySections = sections.slice(1);
+    historySections.reverse();
+    const sortedMarkdown = header + historySections.join("");
+
+    // 簡易的なMarkdown -> HTML 変換 (正規表現による置換)
+    const html = sortedMarkdown
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      // 見出しの変換
+      .replace(/^# (.*$)/gim, '<h1 style="font-size: 1.25rem; font-weight: 700; border-bottom: 2px solid var(--accent-color); padding-bottom: 6px; margin-bottom: 16px;">$1</h1>')
+      .replace(/^## (.*$)/gim, '<h2 style="font-size: 1.05rem; font-weight: 700; margin-top: 20px; margin-bottom: 10px; color: var(--accent-color); border-bottom: 1px solid var(--panel-border); padding-bottom: 4px;">$1</h2>')
+      .replace(/^### (.*$)/gim, '<h3 style="font-size: 0.88rem; font-weight: 700; margin-top: 12px; margin-bottom: 6px; color: var(--text-primary);">$1</h3>')
+      // 水平線
+      .replace(/^\s*---\s*$/gim, '<hr style="border: 0; border-top: 1px solid var(--panel-border); margin: 16px 0;">')
+      // リスト（箇条書き）の変換
+      .replace(/^\s*-\s+(.*$)/gim, '<li style="margin-left: 18px; list-style-type: disc; margin-bottom: 4px;">$1</li>')
+      .replace(/^\s*\*\s+(.*$)/gim, '<li style="margin-left: 18px; list-style-type: disc; margin-bottom: 4px;">$1</li>')
+      // 改行の変換
+      .split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return '<div style="height: 6px;"></div>';
+        // HTMLタグで始まる、または水平線などはそのまま
+        if (trimmed.startsWith('<h') || trimmed.startsWith('<hr') || trimmed.startsWith('<li') || trimmed.startsWith('<div')) {
+          return line;
+        }
+        return `<p style="margin-bottom: 4px;">${line}</p>`;
+      }).join('');
+
+    container.innerHTML = html;
+  } catch (err) {
+    container.textContent = "更新履歴の読み込みに失敗しました: " + err.message;
+  }
 }

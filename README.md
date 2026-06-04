@@ -235,40 +235,52 @@ PDFを読み込むと**処理モード**ラジオボタンが有効になりま�
 
 ---
 
-## ビルド・パッケージ化
+## ビルド・パッケージ化とリリース
 
-### パターンA: フォルダ形式（ポータブル版）
+アプリをビルド・パッケージ化、あるいは GitHub にリリースするためのコマンド一覧です。用途に合わせて使用してください。
 
-インストール不要で即実行できる実行ファイル一式を出力します。
+### コマンド一覧
 
-```bash
-npm run build
-# または
-yarn build
-```
+| コマンド | 用途 | 出力されるもの | 備考 |
+|---|---|---|---|
+| `npm start` | **開発用ローカル起動** | なし | ソースコードの変更をリアルタイムに確認してデバッグする際に使用します。 |
+| `npm run build` | **フォルダ形式（ポータブル版）** | `sign-flow-win32-x64/` 内の `sign-flow.exe` など | インストール不要で即起動できるフォルダ形式のバイナリをローカルに生成します。 |
+| `npm run app:dist` | **ローカルテスト用インストーラー** | `dist/` 内のセットアップファイル (`.exe` または `.dmg`) | インストーラーが正しく動作するかローカルで検証する際に使用します（GitHubへの公開はしません）。 |
+| `npm run build:win` | **Windows用インストーラー作成** | `dist/` 内の `.exe` | Windows用のインストーラーをローカルビルドします（リリースはしません）。 |
+| `npm run release:win` | **GitHubへのリリース・公開（本番用）** | `dist/` 内の `.exe`、`latest.yml` および GitHub Releases への自動アップロード | **新バージョンを正式に配布・自動アップデート対象にする際に使用します。** |
 
-| 項目 | 内容 |
-|---|---|
-| 出力先 | プロジェクトルート → `sign-flow-win32-x64/` または `sign-flow-darwin-x64/` |
-| 実行ファイル | `sign-flow.exe`（Windows）/ `sign-flow`（macOS） |
-| 内部ツール | `electron-packager` |
+---
 
-### パターンB: インストーラー形式
+### 正式リリースの手順 (npm run release:win の使い方)
 
-ユーザーがインストールして使用するセットアップファイルを生成します。
+新しいバージョンをリリースし、ユーザーに自動アップデートを配信する手順は以下の通りです。
 
-```bash
-npm run app:dist
-# または
-yarn app:dist
-```
+1. **変更履歴の追記**  
+   [HISTORY.md](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/HISTORY.md) の末尾に、新バージョンのリリースログを以下のフォーマットで追記します。
+   ```markdown
+   ---
 
-| 項目 | 内容 |
-|---|---|
-| 出力先 | `dist/` フォルダ |
-| Windows | `sign-flow Setup 1.0.0.exe`（NSIS形式。インストール先ディレクトリ変更可） |
-| macOS | `sign-flow-1.0.0.dmg` |
-| 内部ツール | `electron-builder` |
+   ## YYYY-MM-DD HH:MM — v1.X.X [タイトル]
+
+   ### Situation / 指示
+   1. [対応する課題]
+
+   ### Actions Taken / 実行した操作
+   1. [実施した内容]
+   ```
+2. **バージョンの変更**  
+   [package.json](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/package.json) の `"version"` フィールドを新バージョン（例: `1.0.7`）に書き換えます。
+3. **リリースビルドとパブリッシュの実行**  
+   PowerShell等で以下のコマンドを実行します。GitHubへのアップロード権限を持つ `GH_TOKEN` を設定する必要があります。
+   ```powershell
+   $env:GH_TOKEN="[GitHub_Personal_Access_Token]"
+   npm run release:win
+   ```
+   *このコマンドは、自動的に `HISTORY.md` の末尾から最新のリリースログを抽出し、リリースノート（説明文）として GitHub Releases にドラフト作成・アセットをアップロードします。*
+4. **リリースの公開**  
+   GitHubの該当リポジトリの [Releases](https://github.com/8fk1/sign-flow/releases) ページにアクセスすると、ドラフト（Draft）状態のリリースが作成されています。内容を確認し、問題なければ **"Publish release" (リリースの公開)** をクリックして公開します。これにより、ユーザーのアプリが自動アップデートを検知できるようになります。
+
+---
 
 ### macOS 向けビルドの注意
 
