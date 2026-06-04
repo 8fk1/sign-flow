@@ -3004,25 +3004,23 @@ function showToast(message, type = "info", duration = 3000, action = null) {
   return toast;
 }
 
-// HISTORY.md から更新履歴をロードして表示する関数
+// CHANGELOG.md から更新履歴をロードして表示する関数
 function loadAppHistory() {
   const container = document.getElementById("appHistoryContainer");
   if (!container) return;
 
   try {
-    const historyPath = path.join(__dirname, "private", "HISTORY.md");
+    const historyPath = path.join(__dirname, "CHANGELOG.md");
     if (!fs.existsSync(historyPath)) {
-      container.textContent = "更新履歴ファイル (HISTORY.md) が見つかりません。";
+      container.textContent = "更新履歴ファイルが見つかりません。";
       return;
     }
     const markdown = fs.readFileSync(historyPath, "utf-8");
 
-    // "## \d{4}-\d{2}-\d{2}" でセクション分割し、最初のヘッダーを除く履歴セクションを reverse()
-    const sections = markdown.split(/(?=## \d{4}-\d{2}-\d{2})/);
+    // "## v" でセクション分割（CHANGELOG.md はすでに新しい順で書かれているので reverse 不要）
+    const sections = markdown.split(/(?=## v)/);
     const header = sections[0];
-    const historySections = sections.slice(1);
-    historySections.reverse();
-    const sortedMarkdown = header + historySections.join("");
+    const sortedMarkdown = header + sections.slice(1).join("");
 
     // 簡易的なMarkdown -> HTML 変換 (正規表現による置換)
     const html = sortedMarkdown

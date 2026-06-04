@@ -18,6 +18,13 @@
 
     - 修正計画は `private/plan_*.md` に保存する
 
+# リリース手順
+
+    - `npm run release` の前に必ず `CHANGELOG.md` をユーザー向けの変更内容で更新すること
+    - CHANGELOG.md には機能追加・バグ修正など「ユーザーに関係ある変更」だけを書く
+    - 内部的な作業ログは `private/HISTORY.md` に書く（CHANGELOG.md には書かない）
+    - 形式: `## v{バージョン} ({YYYY-MM-DD})` を先頭に追加
+
 
 #　処理の承認
 

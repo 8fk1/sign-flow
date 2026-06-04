@@ -76,6 +76,29 @@ if (isExplicitVersion) {
 const version = readJson(path.join(ROOT, 'package.json')).version;
 console.log(`\n🚀 リリース: v${version}`);
 
+// --- CHANGELOG.md の更新チェック ---
+const changelogPath = path.join(ROOT, 'CHANGELOG.md');
+const changelog = fs.existsSync(changelogPath) ? fs.readFileSync(changelogPath, 'utf8') : '';
+if (!changelog.includes(`## v${version}`)) {
+  console.error(`
+エラー: CHANGELOG.md に v${version} のセクションがありません。
+
+リリース前に CHANGELOG.md を更新してください。
+先頭に以下の形式で追加します：
+
+## v${version} (${new Date().toISOString().slice(0, 10)})
+
+### 追加
+- 新機能の説明
+
+### 修正
+- バグ修正の説明
+
+---
+`);
+  process.exit(1);
+}
+
 // --- リリースノート・ライセンス生成 ---
 run('node scripts/extract-release-notes.js');
 run('node scripts/generate-licenses.js');
