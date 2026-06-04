@@ -118,8 +118,17 @@ run('node scripts/generate-licenses.js');
 
 // --- git commit → タグ → push ---
 run('git add package.json package-lock.json CHANGELOG.md');
-run(`git commit -m "chore: release v${version}"`);
-run(`git tag v${version}`);
+try {
+  run(`git commit -m "chore: release v${version}"`);
+} catch {
+  console.log('コミットするものがありません（スキップ）');
+}
+const existingTag = execSync(`git tag -l v${version}`, { cwd: ROOT }).toString().trim();
+if (!existingTag) {
+  run(`git tag v${version}`);
+} else {
+  console.log(`タグ v${version} は既に存在します（スキップ）`);
+}
 run('git push');
 run('git push --tags');
 
