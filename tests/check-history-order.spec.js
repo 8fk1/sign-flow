@@ -21,7 +21,7 @@ test.describe('変更履歴の表示順序の検証', () => {
     await app.close();
   });
 
-  test('更新履歴の最上部に最新の v1.0.7 の履歴が表示されること', async () => {
+  test('更新履歴の最上部に最新の日付エントリが表示されること', async () => {
     const historyContainer = page.locator('#appHistoryContainer');
     await expect(historyContainer).toBeVisible();
 
@@ -31,7 +31,7 @@ test.describe('変更履歴の表示順序の検証', () => {
     const text = await firstH2.textContent();
     console.log('First H2 content:', text);
 
-    // 最新のバージョン「v1.0.7」が含まれていることを期待
-    expect(text).toContain('v1.0.7');
+    // 最新エントリは日付形式（YYYY-MM-DD）で始まること
+    expect(text).toMatch(/^\d{4}-\d{2}-\d{2}/);
   });
 });

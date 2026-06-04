@@ -7,10 +7,11 @@
     "start": "electron .",
     "build": "electron-packager . --icon=./static/img/32x32.ico --overwrite",
     "b": "node_modules/.bin/electron-builder build",
-    "app:dir": "electron-builder --dir",
-    "app:dist": "electron-builder",
-    "build:win": "electron-builder build --win --publish never",
-    "release:win": "node scripts/extract-release-notes.js && electron-builder build --win --publish always"
+    "generate-licenses": "node scripts/generate-licenses.js",
+    "app:dir": "node scripts/extract-release-notes.js && node scripts/generate-licenses.js && electron-builder --dir",
+    "app:dist": "node scripts/extract-release-notes.js && node scripts/generate-licenses.js && electron-builder",
+    "build:win": "node scripts/extract-release-notes.js && node scripts/generate-licenses.js && electron-builder build --win --publish never",
+    "release:win": "node scripts/extract-release-notes.js && node scripts/generate-licenses.js && electron-builder build --win --publish always"
   },
   "build": {
     "appId": "net.katsubemakto.blog.app.my",
@@ -23,7 +24,8 @@
       "index.html",
       "package.json",
       "static/**/*",
-      "HISTORY.md"
+      "HISTORY.md",
+      "LICENSES.txt"
     ],
     "mac": {
       "target": "dmg",
@@ -37,9 +39,10 @@
       "icon": "static/img/icon/app.ico"
     },
     "nsis": {
-      "oneClick": true,
-      "allowToChangeInstallationDirectory": false,
-      "perMachine": false
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "license": "build/license.txt"
     },
     "releaseInfo": {
       "releaseNotesFile": "release-notes.md"
@@ -60,6 +63,7 @@
     "electron": "^38.2.0",
     "electron-builder": "^26.0.12",
     "electron-packager": "^17.1.2",
+    "license-checker": "^25.0.1",
     "playwright-core": "^1.60.0"
   },
   "dependencies": {

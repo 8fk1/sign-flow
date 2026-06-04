@@ -352,3 +352,42 @@ SignFlowをココナラで一般販売するにあたり、販売前の注意事
 - 画像（スクリーンショット5〜8枚）と動画（1〜3分）は別途ユーザーが撮影・作成が必要
 - 商標「SignFlow」の既存登録商標との衝突確認を推奨
 - Appleコード署名（Developer ID）を取得すれば macOS Gatekeeper 問題が解消される
+
+---
+
+## 2026-06-04 21:10 — LICENSES.txt 自動生成 & EULA ダイアログ実装
+
+### 依頼内容
+ライセンス表記ファイル（LICENSES.txt）をビルド時に自動生成してインストーラーへ同梱すること、およびインストール時にEULA（使用許諾契約書）ダイアログを表示すること。
+
+### 対処内容
+
+1. **`scripts/generate-licenses.js`** 新規作成
+   - `license-checker` を使い、本番依存パッケージ（devDependencies 除外）のライセンス情報を収集
+   - Electron/Chromium/Node.js は手動テンプレートで追加
+   - プロジェクトルートに `LICENSES.txt` を出力
+
+2. **`build/license.txt`** 新規作成
+   - 日本語の EULA（全8条）を作成
+   - 使用許諾・禁止事項・電子印鑑の法的注意・免責事項を含む
+
+3. **`package.json`** 更新
+   - devDependencies に `license-checker@^25.0.1` を追加
+   - `generate-licenses` スクリプトを追加
+   - `app:dist`、`app:dir`、`build:win`、`release:win` の前に generate-licenses と extract-release-notes を自動実行
+   - `build.files` に `LICENSES.txt` を追加（アプリに同梱）
+   - `build.nsis.license` に `build/license.txt` を設定（Windows インストーラーに EULA 画面追加）
+   - `build.nsis.oneClick` を false に変更（EULA 表示に必要）
+   - `build.nsis.allowToChangeInstallationDirectory` を true に変更
+
+4. **`tests/check-history-order.spec.js`** 修正
+   - テストを特定バージョン文字列ではなく日付形式（YYYY-MM-DD）のパターンマッチに変更
+
+### 結果
+- `npm run app:dist` でビルドが成功し、LICENSES.txt が asar に同梱されることを確認
+- macOS の DMG では electron-builder v26 が `dmg.license` を非対応のため EULA ダイアログは Windows（NSIS）のみ
+- 全 13 Playwright テストがパス
+
+### 注意点
+- macOS で EULA ダイアログを出すには electron-builder のカスタム DMG スクリプトか別の方法が必要（別途対応）
+- NSISの `oneClick: false` により、インストーラーのUIがウィザード形式に変わった（インストール先変更も可能になった）
