@@ -2,3 +2,7 @@ node_modules
 dist
 build
 release-notes.md
+LICENSES.txt
+test-results
+private/
+*.DS_Store
