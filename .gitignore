@@ -1,6 +1,7 @@
 node_modules
 dist
-build
+build/*
+!build/license.txt
 release-notes.md
 LICENSES.txt
 test-results
