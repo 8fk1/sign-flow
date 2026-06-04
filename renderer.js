@@ -2863,9 +2863,16 @@ async function loadMeasurePdf(file) {
 
 // --- 自動アップデート IPC リスナー ---
 let _updateToast = null;
+let _manualUpdateCheck = false;
+
+function setCheckUpdateBtnEnabled(enabled) {
+  if (!checkUpdateBtn) return;
+  checkUpdateBtn.disabled = !enabled;
+  checkUpdateBtn.style.opacity = enabled ? '' : '0.5';
+}
 
 ipcRenderer.on('update-checking', () => {
-  // 手動チェック時のみ toast を表示（自動チェックはサイレント）
+  setCheckUpdateBtnEnabled(false);
   if (_manualUpdateCheck) {
     _updateToast = showToast('アップデートを確認しています...', 'info', 0);
   }
@@ -2874,6 +2881,7 @@ ipcRenderer.on('update-checking', () => {
 ipcRenderer.on('update-available', (event, info) => {
   if (_updateToast) { _updateToast.remove(); _updateToast = null; }
   _manualUpdateCheck = false;
+  setCheckUpdateBtnEnabled(false);
   showToast(`v${info.version} が利用可能です。バックグラウンドでダウンロード中...`, 'info', 6000);
 });
 
@@ -2882,9 +2890,8 @@ ipcRenderer.on('update-not-available', () => {
   if (_manualUpdateCheck) {
     showToast('すでに最新バージョンです。', 'success', 3000);
   }
-  if (updateProgressContainer) {
-    updateProgressContainer.style.display = 'none';
-  }
+  if (updateProgressContainer) updateProgressContainer.style.display = 'none';
+  setCheckUpdateBtnEnabled(true);
   _manualUpdateCheck = false;
 });
 
@@ -2908,32 +2915,46 @@ ipcRenderer.on('update-downloaded', (event, info) => {
     updateVersionBadgeEl.style.background = '#16a34a';
     updateVersionBadgeEl.textContent = `v${info.version} 準備完了`;
   }
-  if (updateProgressContainer) {
-    updateProgressContainer.style.display = 'none';
+  if (updateProgressContainer) updateProgressContainer.style.display = 'none';
+  setCheckUpdateBtnEnabled(false);
+
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  if (isMac) {
+    // macOS はコード署名なしのため Squirrel.Mac によるインプレース更新が失敗する。
+    // DMG を手動でインストールするよう案内する。
+    showToast(
+      `v${info.version} の準備ができました。\nmacOS では手動インストールが必要です。`,
+      'success',
+      0,
+      {
+        text: '最新版をダウンロード',
+        callback: () => { ipcRenderer.send('open-releases-page'); }
+      }
+    );
+  } else {
+    showToast(
+      `v${info.version} の準備ができました。今すぐ再起動して適用しますか？`,
+      'success',
+      0,
+      {
+        text: '再起動してアップデート',
+        callback: () => { ipcRenderer.send('install-update'); }
+      }
+    );
   }
-  showToast(
-    `v${info.version} のアップデートが準備できました。今すぐ再起動して適用しますか？`,
-    'success',
-    0,
-    {
-      text: '再起動してアップデート',
-      callback: () => { ipcRenderer.send('install-update'); }
-    }
-  );
 });
 
 ipcRenderer.on('update-error', (event, message) => {
   if (_updateToast) { _updateToast.remove(); _updateToast = null; }
+  if (updateProgressContainer) updateProgressContainer.style.display = 'none';
+  setCheckUpdateBtnEnabled(true);
+  // コード署名エラーは macOS 署名なしビルドでは常に発生するためサイレントに処理
+  if (message && message.includes('Code signature')) return;
   if (_manualUpdateCheck) {
-    showToast(`アップデートの確認に失敗しました。\nサーバに接続できない可能性があります。`, 'error', 5000);
-  }
-  if (updateProgressContainer) {
-    updateProgressContainer.style.display = 'none';
+    showToast('アップデートの確認に失敗しました。\nサーバに接続できない可能性があります。', 'error', 5000);
   }
   _manualUpdateCheck = false;
 });
-
-let _manualUpdateCheck = false;
 
 // トースト通知を表示する関数（アクションボタンの指定が可能）
 function showToast(message, type = "info", duration = 3000, action = null) {

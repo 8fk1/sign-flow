@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 const fs = require('fs');
@@ -113,6 +113,11 @@ ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.on('install-update', () => {
   log.info('install-update を受信 → quitAndInstall を呼び出し');
   autoUpdater.quitAndInstall(false, true);
+});
+
+// GitHub Releases ページをブラウザで開く（macOS コード署名なし時のフォールバック）
+ipcMain.on('open-releases-page', () => {
+  shell.openExternal('https://github.com/8fk1/sign-flow/releases/latest');
 });
 
 // 手動でアップデートを確認する
