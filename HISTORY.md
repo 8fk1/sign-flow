@@ -322,3 +322,33 @@ macOS 15 (Sequoia) で導入された `com.apple.provenance` 拡張属性が、E
 ### Actions Taken / 実行した操作
 1. [renderer.js](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/renderer.js) の `loadAppHistory()` を修正し、`HISTORY.md` の各セクションを「## YYYY-MM-DD」で分割後、逆順（最新が上）にソートして結合した上でHTMLに描画するように対応。
 2. [package.json](file:///c:/Users/fujiwara/Documents/GitHub/sign-flow/package.json) のバージョンを `1.0.7` に引き上げ。
+
+---
+
+## 2026-06-04 20:46 — ココナラ販売ページコンテンツ作成
+
+### 依頼内容
+SignFlowをココナラで一般販売するにあたり、販売前の注意事項の整理と、サービスページに必要な各コンテンツ（タイトル・説明文・FAQ等）の作成依頼。
+
+### 結果
+1. **販売前の注意事項**を整理・提示
+   - ライセンス表記義務（Electron/pdf-lib等のOSSライブラリ）
+   - フォント著作権（システムフォント参照はOK、同梱は不可）
+   - 電子印鑑の法的効力の注意書き必要性
+   - macOS Gatekeeper警告への対応方法
+   - サポート期間・返金ポリシーの事前定義の重要性
+
+2. **サービスページコンテンツを `.claude/coconala_service.md` に保存**
+   - サービスタイトル（22字）
+   - キャッチコピー（26字）
+   - サービス内容（約880字）
+   - 推奨価格：基本5,000円
+   - 有料オプション2種（リモートサポート2,000円 / テンプレート登録代行3,000円）
+   - 購入にあたってのお願い（約420字）
+   - よくある質問10件
+   - 必要な画像・動画の仕様ガイド
+
+### 注意点
+- 画像（スクリーンショット5〜8枚）と動画（1〜3分）は別途ユーザーが撮影・作成が必要
+- 商標「SignFlow」の既存登録商標との衝突確認を推奨
+- Appleコード署名（Developer ID）を取得すれば macOS Gatekeeper 問題が解消される
