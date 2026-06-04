@@ -29,7 +29,7 @@
       "LICENSES.txt"
     ],
     "mac": {
-      "target": "dmg",
+      "target": ["dmg", "zip"],
       "icon": "static/img/icon/icon.png",
       "identity": null,
       "hardenedRuntime": false,
