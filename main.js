@@ -4,18 +4,6 @@ const log = require('electron-log');
 const fs = require('fs');
 const path = require('path');
 
-// ========================================================
-// 自動アップデート設定（GitHub Releases / プライベートリポジトリ）
-//
-// 【初回セットアップ手順】
-// 1. GitHub → Settings → Developer settings → Personal access tokens
-//    → Fine-grained tokens → Generate new token
-//    ・Repository access: sign-flow のみ
-//    ・Permissions: Contents = Read-only
-// 2. 発行されたトークン（ghp_xxxx...）を下の UPDATER_TOKEN に設定してコミット
-// ========================================================
-const UPDATER_TOKEN = 'REDACTED_TOKEN'; // ← ここを書き換えてください
-
 // ユーザーデータ内の印影フォルダを初期化する
 function initStampFolder() {
   const userStampDir = path.join(app.getPath('userData'), 'stamp');
@@ -46,8 +34,6 @@ function setupAutoUpdater(mainWindow) {
     provider: 'github',
     owner: '8fk1',
     repo: 'sign-flow',
-    private: true,
-    token: UPDATER_TOKEN,
   });
 
   autoUpdater.on('checking-for-update', () => {

@@ -50,12 +50,11 @@
     "publish": {
       "provider": "github",
       "owner": "8fk1",
-      "repo": "sign-flow",
-      "private": true
+      "repo": "sign-flow"
     }
   },
   "keywords": [],
-  "author": "DESKTOP-RQTS4S9 <fujiwarayuuki@summitsystem.co.jp>",
+  "author": "8fk1",
   "license": "ISC",
   "description": "Sign Flow application for stamping PDFs.",
   "devDependencies": {
