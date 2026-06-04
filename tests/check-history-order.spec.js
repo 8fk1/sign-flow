@@ -12,8 +12,8 @@ test.describe('変更履歴の表示順序の検証', () => {
     page = await app.firstWindow();
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(500);
-    // マスタ管理タブへ移動
-    await page.click('#tabBtnMaster');
+    // アプリ情報タブへ移動
+    await page.click('#tabBtnInfo');
     await page.waitForTimeout(500);
   });
 

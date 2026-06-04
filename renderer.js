@@ -213,6 +213,7 @@ tabBtnMaster.addEventListener("click", () => {
 
 tabBtnInfo.addEventListener("click", () => {
   switchTab(tabBtnInfo, tabContentInfo);
+  loadAppHistory();
 });
 
 // 印影のサイズ・形状情報をメタデータから算出する
@@ -518,7 +519,6 @@ function renderMasterView() {
 
   // イベント登録
   registerMasterEvents();
-  loadAppHistory();
 }
 
 function registerMasterEvents() {
