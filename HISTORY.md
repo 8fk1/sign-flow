@@ -402,3 +402,28 @@ SignFlowをココナラで一般販売するにあたり、販売前の注意事
 ### 結果
 コードを調査した結果、全モードで `pdfDoc.getPages()[0]`（1ページ目固定）のみへの押印であることを確認。
 コナラサービスページ（.claude/coconala_service.md）のQ6を「1ページ目のみ対応」と正確に修正した。
+
+---
+
+## 2026-06-04 21:40 — リポジトリパブリック化前の機密情報除去
+
+### 依頼内容
+コナラ販売のためリポジトリをパブリック化するにあたり、GitHubトークン等の機密情報を隠蔽してパブリック化する。
+
+### 発見した問題
+- `main.js:17` に GitHub Personal Access Token（PAT）がハードコードされていた
+- git 履歴（複数コミット）にも2種類のトークンが記録されていた
+- `package.json` の `author` に会社メールアドレスが含まれていた
+
+### 対処内容
+1. `main.js` から `UPDATER_TOKEN` 変数・関連コメントブロックを完全削除
+2. `setupAutoUpdater` の `private: true` と `token: UPDATER_TOKEN` を削除（パブリックリポジトリはトークン不要）
+3. `package.json` の `author` を `8fk1` に変更（メールアドレス削除）
+4. `package.json` の `publish.private: true` を削除
+5. `.gitignore` に `test-results/`, `LICENSES.txt`, `*.DS_Store` を追加
+6. `git-filter-repo` で全履歴（30コミット）からトークン2種類を `REDACTED_TOKEN` に置換
+7. force push で GitHub のリポジトリ履歴を上書き
+
+### 残りの手順（ユーザー作業）
+1. GitHub → Settings → Personal access tokens で sign-flow 用トークンを revoke
+2. GitHub リポジトリ → Settings → Danger Zone → "Change visibility" → Public に変更
