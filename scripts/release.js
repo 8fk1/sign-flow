@@ -132,7 +132,6 @@ if (!existingTag) {
 run('git push');
 run('git push --tags');
 
-// --- ビルド & GitHub Releases へアップロード ---
-run('electron-builder build --publish always');
-
-console.log(`\n✅ v${version} のリリースが完了しました`);
+console.log(`\n✅ v${version} のタグをプッシュしました`);
+console.log(`\n🤖 GitHub Actions が Mac版・Windows版のビルドを自動実行します`);
+console.log(`   進捗: https://github.com/8fk1/sign-flow/actions`);

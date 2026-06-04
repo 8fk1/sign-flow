@@ -1,51 +1,39 @@
-name: Release
+name: Build and Release
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
 
-# リリース作成に必要な書き込み権限
 permissions:
   contents: write
 
 jobs:
   release:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # タグ一覧取得のため全履歴が必要
-
-      # package.json のバージョンに対応するタグが未作成なら release=true
-      - name: リリース要否の判定
-        id: check
-        shell: bash
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
-            echo "v$VERSION のタグは既に存在します。スキップします。"
-            echo "release=false" >> $GITHUB_OUTPUT
-          else
-            echo "v$VERSION は新バージョンです。リリースを実行します。"
-            echo "release=true" >> $GITHUB_OUTPUT
-          fi
 
       - uses: actions/setup-node@v4
-        if: steps.check.outputs.release == 'true'
         with:
-          node-version: 20
+          node-version: '22'
           cache: 'npm'
 
       - name: 依存関係インストール
-        if: steps.check.outputs.release == 'true'
         run: npm ci
 
-      - name: Windows インストーラーをビルドして GitHub Release に公開
-        if: steps.check.outputs.release == 'true'
-        run: npm run release:win
+      - name: リリースノート生成
+        run: node scripts/extract-release-notes.js
+
+      - name: ライセンスファイル生成
+        run: node scripts/generate-licenses.js
+
+      - name: ビルド & GitHub Release へアップロード
         env:
-          # GitHub Actions の自動トークン（追加設定不要）
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder build --publish always
