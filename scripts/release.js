@@ -23,6 +23,27 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 
+// --- GH_TOKEN チェック（ビルド前に確認） ---
+if (!process.env.GH_TOKEN) {
+  console.error(`
+エラー: GH_TOKEN 環境変数が設定されていません。
+
+GitHub Releases へのアップロードにはトークンが必要です。
+以下の手順で設定してください：
+
+1. https://github.com/settings/personal-access-tokens/new で PAT を作成
+   - Repository access: sign-flow のみ
+   - Permissions > Contents: Read and write
+
+2. ~/.zshrc に追加:
+   export GH_TOKEN=発行されたトークン
+
+3. 反映:
+   source ~/.zshrc
+`);
+  process.exit(1);
+}
+
 function run(cmd, opts = {}) {
   console.log(`\n> ${cmd}`);
   execSync(cmd, { cwd: ROOT, stdio: 'inherit', ...opts });
