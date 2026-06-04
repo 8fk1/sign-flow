@@ -40,11 +40,19 @@ GitHub Releases へのアップロードにはトークンが必要です。
    - Repository access: sign-flow のみ
    - Permissions > Contents: Read and write
 
+【macOS / Linux】
 2. ~/.zshrc に追加:
    export GH_TOKEN=発行されたトークン
 
 3. 反映:
    source ~/.zshrc
+
+【Windows (PowerShell)】
+2. 一時的に設定（現在のセッションのみ）:
+   $env:GH_TOKEN = "発行されたトークン"
+
+   永続的に設定（システム環境変数）:
+   [System.Environment]::SetEnvironmentVariable("GH_TOKEN", "発行されたトークン", "User")
 `);
   process.exit(1);
 }
