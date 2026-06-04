@@ -5,4 +5,11 @@ release-notes.md
 LICENSES.txt
 test-results
 private/
+stamp-win32-x64/
 *.DS_Store
+
+# .claude フォルダは全体を除外するが CLAUDE.md だけ共有する
+.claude/*
+!.claude/CLAUDE.md
+
+.github
