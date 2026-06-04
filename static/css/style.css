@@ -850,6 +850,16 @@ input, textarea {
 }
 
 /* トースト通知 */
+.global-update-progress {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--panel-border);
+  padding: 8px 16px;
+  color: var(--accent-color);
+}
+
 .toast-container {
   position: fixed;
   bottom: 24px;

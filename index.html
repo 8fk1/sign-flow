@@ -29,7 +29,17 @@
     <nav class="tab-navigation">
       <button id="tabBtnStamp" class="tab-btn is-active">押印処理</button>
       <button id="tabBtnMaster" class="tab-btn">設定・マスタ管理</button>
+      <button id="tabBtnInfo" class="tab-btn">アプリ情報</button>
     </nav>
+
+    <!-- ダウンロードプログレス（全タブ共通・常時表示） -->
+    <div id="updateProgressContainer" class="global-update-progress" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.78rem; font-weight: 500;">
+        <span><i class="fa-solid fa-cloud-arrow-down" style="margin-right: 4px;"></i> アップデートをダウンロード中...</span>
+        <span id="updateProgressPercent" style="font-weight: 700;">0%</span>
+      </div>
+      <progress id="updateProgressBar" class="progress is-primary" value="0" max="100" style="height: 6px; margin-bottom: 0;"></progress>
+    </div>
 
     <!-- 1. 押印処理メインタブ -->
     <div id="tabContentStamp" class="tab-content">
@@ -258,32 +268,6 @@
         </div>
       </div>
 
-      <!-- アプリ情報・アップデート -->
-      <div class="card-panel">
-        <h2 class="master-section-title">アプリ情報・アップデート</h2>
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 0.85rem; color: var(--text-secondary);">
-              現在のバージョン: <strong id="currentAppVersion" style="color: var(--text-primary);">-</strong>
-            </span>
-            <span id="updateVersionBadge"
-              style="display: none; font-size: 0.72rem; font-weight: 600; background: var(--accent-color); color: #fff; padding: 2px 8px; border-radius: 10px;"></span>
-          </div>
-          <button id="checkUpdateBtn" class="btn-submit"
-            style="background: #475569; padding: 6px 14px; font-size: 0.82rem; height: auto; width: auto;">
-            <i class="fa-solid fa-rotate"></i> アップデートを今すぐ確認
-          </button>
-        </div>
-        <!-- プログレスバー用コンテナ -->
-        <div id="updateProgressContainer" style="display: none; margin-top: 16px; background: #f8fafc; padding: 12px; border-radius: var(--border-radius); border: 1px solid var(--panel-border);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;">
-            <span><i class="fa-solid fa-cloud-arrow-down" style="color: var(--accent-color); margin-right: 4px;"></i> アップデートファイルをダウンロード中...</span>
-            <span id="updateProgressPercent" style="font-weight: 700; color: var(--accent-color);">0%</span>
-          </div>
-          <progress id="updateProgressBar" class="progress is-primary" value="0" max="100" style="height: 10px; margin-bottom: 0; background: #e2e8f0;"></progress>
-        </div>
-      </div>
-
       <!-- PDF出力微調整設定 -->
       <div class="card-panel">
         <h2 class="master-section-title">PDF出力の微調整</h2>
@@ -433,6 +417,27 @@
           </footer>
         </div>
       </div>
+    </div><!-- /tabContentMaster -->
+
+    <!-- 3. アプリ情報タブ -->
+    <div id="tabContentInfo" class="tab-content hidden">
+      <div class="card-panel">
+        <h2 class="master-section-title">アプリ情報・アップデート</h2>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">
+              現在のバージョン: <strong id="currentAppVersion" style="color: var(--text-primary);">-</strong>
+            </span>
+            <span id="updateVersionBadge"
+              style="display: none; font-size: 0.72rem; font-weight: 600; background: var(--accent-color); color: #fff; padding: 2px 8px; border-radius: 10px;"></span>
+          </div>
+          <button id="checkUpdateBtn" class="btn-submit"
+            style="background: #475569; padding: 6px 14px; font-size: 0.82rem; height: auto; width: auto;">
+            <i class="fa-solid fa-rotate"></i> アップデートを今すぐ確認
+          </button>
+        </div>
+      </div>
+    </div>
 
       <!-- トースト通知用コンテナ -->
       <div id="toastContainer" class="toast-container"></div>

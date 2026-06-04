@@ -111,7 +111,8 @@ ipcMain.handle('get-app-version', () => app.getVersion());
 
 // アップデートを今すぐインストール（再起動）
 ipcMain.on('install-update', () => {
-  autoUpdater.quitAndInstall();
+  log.info('install-update を受信 → quitAndInstall を呼び出し');
+  autoUpdater.quitAndInstall(false, true);
 });
 
 // 手動でアップデートを確認する

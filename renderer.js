@@ -55,8 +55,10 @@ let stampFolder = path.join(__dirname, stampDir); // 開発時のフォールバ
 // DOM要素の取得
 const tabBtnStamp = document.getElementById("tabBtnStamp");
 const tabBtnMaster = document.getElementById("tabBtnMaster");
+const tabBtnInfo = document.getElementById("tabBtnInfo");
 const tabContentStamp = document.getElementById("tabContentStamp");
 const tabContentMaster = document.getElementById("tabContentMaster");
+const tabContentInfo = document.getElementById("tabContentInfo");
 
 const dropArea = document.getElementById("dropArea");
 const pdfInput = document.getElementById("pdfInput");
@@ -188,14 +190,16 @@ let measurePtWidth = A4_WIDTH_PT;
 let measurePtHeight = A4_HEIGHT_PT;
 
 // --- タブの切り替え ---
-tabBtnStamp.addEventListener("click", () => {
-  tabBtnStamp.classList.add("is-active");
-  tabBtnMaster.classList.remove("is-active");
-  tabContentStamp.classList.remove("hidden");
-  tabContentMaster.classList.add("hidden");
-  loadSelectOptions(); // タブ切り替え時に選択肢を最新化
+function switchTab(activeBtn, activeContent) {
+  [tabBtnStamp, tabBtnMaster, tabBtnInfo].forEach(b => b.classList.remove("is-active"));
+  [tabContentStamp, tabContentMaster, tabContentInfo].forEach(c => c.classList.add("hidden"));
+  activeBtn.classList.add("is-active");
+  activeContent.classList.remove("hidden");
+}
 
-  // マスタ設定での変更（リネームや削除）を反映させるため、ビジュアル押印モード時はプレビューを再描画する
+tabBtnStamp.addEventListener("click", () => {
+  switchTab(tabBtnStamp, tabContentStamp);
+  loadSelectOptions();
   const selectedMode = document.querySelector('input[name="mode"]:checked');
   if (selectedMode && selectedMode.id === "radioVisual" && loadedPdfFiles.length > 0) {
     renderVisualStep();
@@ -203,11 +207,12 @@ tabBtnStamp.addEventListener("click", () => {
 });
 
 tabBtnMaster.addEventListener("click", () => {
-  tabBtnMaster.classList.add("is-active");
-  tabBtnStamp.classList.remove("is-active");
-  tabContentMaster.classList.remove("hidden");
-  tabContentStamp.classList.add("hidden");
+  switchTab(tabBtnMaster, tabContentMaster);
   renderMasterView();
+});
+
+tabBtnInfo.addEventListener("click", () => {
+  switchTab(tabBtnInfo, tabContentInfo);
 });
 
 // 印影のサイズ・形状情報をメタデータから算出する
