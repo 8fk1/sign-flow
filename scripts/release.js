@@ -2,13 +2,18 @@
  * リリーススクリプト
  *
  * 使い方:
- *   npm run release          # パッチバージョンアップ (1.0.7 → 1.0.8)
- *   npm run release minor    # マイナーバージョンアップ (1.0.7 → 1.1.0)
- *   npm run release major    # メジャーバージョンアップ (1.0.7 → 2.0.0)
- *   npm run release 1.2.3    # バージョンを直接指定
+ *   npm run release
+ *
+ * 事前準備（必須）:
+ *   CHANGELOG.md の先頭に新バージョンのセクションを追加してから実行する。
+ *   例:
+ *     ## v1.1.0 (2026-06-05)
+ *     ### 追加
+ *     - ○○機能を追加
+ *     ---
  *
  * 実行内容:
- *   1. package.json のバージョンを更新
+ *   1. CHANGELOG.md の最新バージョンを読み取り、package.json に反映
  *   2. release-notes.md を生成（private/HISTORY.md から最新セクション抽出）
  *   3. LICENSES.txt を生成
  *   4. git commit → タグ → push
@@ -23,7 +28,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 
-// --- GH_TOKEN チェック（ビルド前に確認） ---
+// --- GH_TOKEN チェック ---
 if (!process.env.GH_TOKEN) {
   console.error(`
 エラー: GH_TOKEN 環境変数が設定されていません。
@@ -53,40 +58,21 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-// --- バージョン決定 ---
-const bump = process.argv[2] || 'patch';
-const validBumps = ['patch', 'minor', 'major'];
-const isExplicitVersion = !validBumps.includes(bump) && /^\d+\.\d+\.\d+$/.test(bump);
-
-if (!validBumps.includes(bump) && !isExplicitVersion) {
-  console.error(`エラー: 引数は patch / minor / major または x.y.z 形式で指定してください。`);
+// --- CHANGELOG.md から最新バージョンを読み取る ---
+const changelogPath = path.join(ROOT, 'CHANGELOG.md');
+if (!fs.existsSync(changelogPath)) {
+  console.error('エラー: CHANGELOG.md が見つかりません。');
   process.exit(1);
 }
-
-// --- バージョンを上げる ---
-if (isExplicitVersion) {
-  const pkg = readJson(path.join(ROOT, 'package.json'));
-  pkg.version = bump;
-  fs.writeFileSync(path.join(ROOT, 'package.json'), JSON.stringify(pkg, null, 2) + '\n', 'utf8');
-  console.log(`\nバージョンを ${bump} に設定しました`);
-} else {
-  run(`npm version ${bump} --no-git-tag-version`);
-}
-
-const version = readJson(path.join(ROOT, 'package.json')).version;
-console.log(`\n🚀 リリース: v${version}`);
-
-// --- CHANGELOG.md の更新チェック ---
-const changelogPath = path.join(ROOT, 'CHANGELOG.md');
-const changelog = fs.existsSync(changelogPath) ? fs.readFileSync(changelogPath, 'utf8') : '';
-if (!changelog.includes(`## v${version}`)) {
+const changelog = fs.readFileSync(changelogPath, 'utf8');
+const versionMatch = changelog.match(/^## v(\d+\.\d+\.\d+)/m);
+if (!versionMatch) {
   console.error(`
-エラー: CHANGELOG.md に v${version} のセクションがありません。
+エラー: CHANGELOG.md にバージョンのセクションが見つかりません。
 
-リリース前に CHANGELOG.md を更新してください。
-先頭に以下の形式で追加します：
+先頭に以下の形式で追加してください：
 
-## v${version} (${new Date().toISOString().slice(0, 10)})
+## v1.x.x (${new Date().toISOString().slice(0, 10)})
 
 ### 追加
 - 新機能の説明
@@ -98,13 +84,32 @@ if (!changelog.includes(`## v${version}`)) {
 `);
   process.exit(1);
 }
+const version = versionMatch[1];
+
+// --- 現在の package.json バージョンと比較 ---
+const currentVersion = readJson(path.join(ROOT, 'package.json')).version;
+if (currentVersion === version) {
+  console.error(`
+エラー: package.json のバージョン (v${currentVersion}) と CHANGELOG.md の最新バージョン (v${version}) が同じです。
+
+CHANGELOG.md に新しいバージョンのセクションを追加してください。
+`);
+  process.exit(1);
+}
+
+// --- package.json のバージョンを CHANGELOG.md に合わせて更新 ---
+const pkg = readJson(path.join(ROOT, 'package.json'));
+pkg.version = version;
+fs.writeFileSync(path.join(ROOT, 'package.json'), JSON.stringify(pkg, null, 2) + '\n', 'utf8');
+console.log(`\nバージョンを v${currentVersion} → v${version} に更新しました`);
+console.log(`\n🚀 リリース: v${version}`);
 
 // --- リリースノート・ライセンス生成 ---
 run('node scripts/extract-release-notes.js');
 run('node scripts/generate-licenses.js');
 
 // --- git commit → タグ → push ---
-run('git add package.json package-lock.json');
+run('git add package.json package-lock.json CHANGELOG.md');
 run(`git commit -m "chore: release v${version}"`);
 run(`git tag v${version}`);
 run('git push');

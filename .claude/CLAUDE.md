@@ -21,10 +21,10 @@
 
 # リリース手順
 
-    - `npm run release` の前に必ず `CHANGELOG.md` をユーザー向けの変更内容で更新すること
+    - バージョンは CHANGELOG.md が決める。`npm run release` は CHANGELOG.md の最新バージョンを package.json に反映してリリースする
+    - リリース時は CHANGELOG.md の先頭に `## v{新バージョン} ({YYYY-MM-DD})` のセクションを追加してから `npm run release` を実行する
     - CHANGELOG.md には機能追加・バグ修正など「ユーザーに関係ある変更」だけを書く
     - 内部的な作業ログは `private/HISTORY.md` に書く（CHANGELOG.md には書かない）
-    - 形式: `## v{バージョン} ({YYYY-MM-DD})` を先頭に追加
 
 
 #　処理の承認
