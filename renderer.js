@@ -3021,13 +3021,27 @@ function showToast(message, type = "info", duration = 3000, action = null) {
 
   toast.innerHTML = `
     ${iconHtml}
-    <div style="flex: 1; display: flex; flex-direction: column; line-height: 1.4;">
+    <div style="flex: 1; display: flex; flex-direction: column; line-height: 1.4; padding-right: 16px;">
       <div>${formattedMessage}</div>
       ${actionHtml}
     </div>
+    <button class="toast-close-btn" aria-label="閉じる">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
   `;
 
   container.appendChild(toast);
+
+  const closeBtn = toast.querySelector(".toast-close-btn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toast.classList.remove("is-show");
+      setTimeout(() => {
+        toast.remove();
+      }, 400);
+    });
+  }
 
   if (action) {
     const btn = toast.querySelector(".toast-action-btn");

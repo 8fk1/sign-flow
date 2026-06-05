@@ -49,4 +49,25 @@ test.describe('自動アップデートUI', () => {
     // display: none なので不可視
     await expect(badge).toBeHidden();
   });
+
+  test('トースト通知が表示され、閉じるボタンで消去できること', async () => {
+    // ページ上で showToast を呼び出す
+    await page.evaluate(() => {
+      showToast('テスト用メッセージ', 'info', 0);
+    });
+
+    const toast = page.locator('.toast');
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText('テスト用メッセージ');
+
+    const closeBtn = toast.locator('.toast-close-btn');
+    await expect(closeBtn).toBeVisible();
+
+    // 閉じるボタンをクリックする
+    await closeBtn.click();
+
+    // トーストが消えるのを待つ (is-show が外れ、400ms 後に remove される)
+    await page.waitForTimeout(600);
+    await expect(toast).not.toBeAttached();
+  });
 });

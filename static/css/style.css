@@ -872,6 +872,7 @@ input, textarea {
 }
 
 .toast {
+  position: relative;
   min-width: 280px;
   max-width: 440px;
   padding: 14px 20px;
@@ -924,6 +925,28 @@ input, textarea {
 
 .toast-error i {
   color: var(--danger-color);
+}
+
+.toast-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  opacity: 0.6;
+  transition: opacity var(--transition-speed), color var(--transition-speed);
+}
+
+.toast-close-btn:hover {
+  opacity: 1;
+  color: var(--text-primary);
 }
 
 /* 日付テキスト追加パネル */
