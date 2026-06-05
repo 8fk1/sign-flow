@@ -55,7 +55,8 @@
     "publish": {
       "provider": "github",
       "owner": "8fk1",
-      "repo": "sign-flow"
+      "repo": "sign-flow",
+      "releaseType": "release"
     }
   },
   "keywords": [],
