@@ -289,7 +289,7 @@
 
         <!-- 新規作成フォーム -->
         <div
-          style="background: #f8fafc; padding: 12px; border-radius: var(--border-radius); border: 1px solid var(--panel-border); margin-bottom: 16px;">
+          style="background: var(--setting-row-bg); padding: 12px; border-radius: var(--border-radius); border: 1px solid var(--panel-border); margin-bottom: 16px;">
           <p class="label-title" style="color: var(--accent-color);">書類種別の新規登録</p>
           <div class="columns is-mobile is-vcentered" style="margin-bottom: 8px;">
             <div class="column is-8">
@@ -320,10 +320,10 @@
             </p>
             <button class="delete" id="stampCreateModalClose" aria-label="close"></button>
           </header>
-          <section class="modal-card-body" style="padding: 20px; background: #f8fafc;">
+          <section class="modal-card-body" style="padding: 20px; background: var(--bg-color);">
             <div style="display: flex; justify-content: center; margin-bottom: 16px;">
               <canvas id="stampCreateCanvas" width="200" height="200"
-                style="width: 160px; height: 160px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;"></canvas>
+                style="width: 160px; height: 160px; background: var(--input-bg); border: 1px solid var(--panel-border); border-radius: 6px;"></canvas>
             </div>
             <div style="margin-bottom: 12px;">
               <label
@@ -363,7 +363,7 @@
             <button class="delete close-measure-modal" aria-label="close"></button>
           </header>
           <section class="modal-card-body"
-            style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; background: #f8fafc;">
+            style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; background: var(--bg-color);">
             <!-- テスト用PDF選択 (ドラッグ＆ドロップ対応) -->
             <div id="measurePdfSelector" style="width: 100%; max-width: 480px;">
               <div id="measureDropArea" class="drop-zone-small">
@@ -389,13 +389,13 @@
 
             <!-- 測定値表示 -->
             <div id="measureResultFields" class="columns is-mobile hidden"
-              style="width: 100%; max-width: 480px; margin-top: 8px; background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+              style="width: 100%; max-width: 480px; margin-top: 8px; background: var(--panel-bg); padding: 10px; border-radius: 6px; border: 1px solid var(--panel-border);">
               <div class="column is-6 text-center">
                 <p style="font-size: 0.85rem; color: var(--text-secondary);">計算された X 座標</p>
                 <p style="font-size: 1.25rem; font-weight: 700; color: var(--accent-color); margin-top: 4px;"><span
                     id="measureXVal">0</span> pt</p>
               </div>
-              <div class="column is-6 text-center" style="border-left: 1px solid #e2e8f0;">
+              <div class="column is-6 text-center" style="border-left: 1px solid var(--panel-border);">
                 <p style="font-size: 0.85rem; color: var(--text-secondary);">計算された Y 座標</p>
                 <p style="font-size: 1.25rem; font-weight: 700; color: var(--accent-color); margin-top: 4px;"><span
                     id="measureYVal">0</span> pt</p>
@@ -433,7 +433,7 @@
       <!-- 更新履歴 -->
       <div class="card-panel">
         <h2 class="master-section-title"><i class="fa-solid fa-clock-rotate-left"></i> 更新履歴</h2>
-        <div id="appHistoryContainer" style="max-height: 400px; overflow-y: auto; background: #f8fafc; padding: 16px; border-radius: var(--border-radius); border: 1px solid var(--panel-border); font-size: 0.82rem; line-height: 1.6; color: var(--text-primary);">
+        <div id="appHistoryContainer" style="max-height: 400px; overflow-y: auto; background: var(--setting-row-bg); padding: 16px; border-radius: var(--border-radius); border: 1px solid var(--panel-border); font-size: 0.82rem; line-height: 1.6; color: var(--text-primary);">
           更新履歴を読み込み中...
         </div>
       </div>

@@ -151,6 +151,7 @@ let loadedPdfFiles = [];
 let stampImages = [];
 let docTypes = [];
 let stampMeta = {}; // { "filename.png": { naturalWidth: 100, naturalHeight: 50 } }
+let currentMode = ""; // 現在選択されている処理モード
 
 // ビジュアル個別押印の状態
 let currentVisualIndex = 0;
@@ -1031,9 +1032,30 @@ function disableRadioButtons() {
   modeRadios.forEach(r => r.setAttribute("disabled", true));
 }
 
+function syncVisualSettingsWithFiles() {
+  while (visualStampsSettings.length < loadedPdfFiles.length) {
+    visualStampsSettings.push({
+      fileIndex: visualStampsSettings.length,
+      stamps: [],
+      dateTexts: [],
+      dateRows: []
+    });
+  }
+  if (visualStampsSettings.length > loadedPdfFiles.length) {
+    visualStampsSettings = visualStampsSettings.slice(0, loadedPdfFiles.length);
+  }
+  if (currentVisualIndex >= loadedPdfFiles.length) {
+    currentVisualIndex = Math.max(0, loadedPdfFiles.length - 1);
+  }
+}
+
 function updateActiveMode() {
   const selectedMode = document.querySelector('input[name="mode"]:checked');
   if (!selectedMode) return;
+
+  const modeId = selectedMode.id;
+  const modeChanged = (currentMode !== modeId);
+  currentMode = modeId;
 
   sectionAll.classList.add("hidden");
   sectionIndividual.classList.add("hidden");
@@ -1041,15 +1063,21 @@ function updateActiveMode() {
   stampPdfBtn.classList.remove("hidden"); // 一旦出力ボタンを表示状態にする
   stampPdfBtn.disabled = false;
 
-  if (selectedMode.id === "radioAll") {
+  if (modeId === "radioAll") {
     sectionAll.classList.remove("hidden");
-  } else if (selectedMode.id === "radioIndividual") {
+  } else if (modeId === "radioIndividual") {
     sectionIndividual.classList.remove("hidden");
     renderIndividualSettings();
-  } else if (selectedMode.id === "radioVisual") {
+  } else if (modeId === "radioVisual") {
     sectionVisual.classList.remove("hidden");
     stampPdfBtn.classList.add("hidden"); // ビジュアルモードでは下部ボタンを隠す
-    initVisualMode();
+    
+    if (modeChanged) {
+      initVisualMode();
+    } else {
+      syncVisualSettingsWithFiles();
+      renderVisualStep();
+    }
   }
 }
 
@@ -1080,8 +1108,8 @@ selectDocType.addEventListener("change", (e) => {
     const row = document.createElement("div");
     row.style.fontSize = "0.8rem";
     row.style.padding = "6px 12px";
-    row.style.background = "#f8fafc";
-    row.style.border = "1px solid #e2e8f0";
+    row.style.background = "var(--setting-row-bg)";
+    row.style.border = "1px solid var(--panel-border)";
     row.style.borderRadius = "4px";
     row.style.marginBottom = "4px";
     row.style.display = "flex";
@@ -1116,8 +1144,8 @@ function renderIndividualSettings() {
     row.style.display = "flex";
     row.style.alignItems = "center";
     row.style.justifyContent = "space-between";
-    row.style.background = "#f8fafc";
-    row.style.border = "1px solid #e2e8f0";
+    row.style.background = "var(--setting-row-bg)";
+    row.style.border = "1px solid var(--panel-border)";
     row.style.borderRadius = "6px";
     row.style.padding = "8px 12px";
     row.style.marginBottom = "6px";
@@ -1165,6 +1193,7 @@ function initVisualMode() {
     if (!newName.toLowerCase().endsWith(".pdf")) newName += ".pdf";
     loadedPdfFiles[currentVisualIndex].customName = newName;
     visualFileNameInput.value = newName;
+    displayFiles(); // 上部のファイルリストも即座に同期
   };
 
   visualFileNameInput.onblur = commitFileName;
@@ -1987,13 +2016,13 @@ function createDateTextElement(text, startX = null, startY = null, fontSizePt = 
     const elTop = parseFloat(el.style.top) || 0;
     const previewH = parseFloat(visualPreviewArea.style.height) || visualPreviewArea.getBoundingClientRect().height || PREVIEW_HEIGHT_PX;
     const popupTop = elTop + el.offsetHeight + 4;
-    popup.style.cssText = `position:absolute; top:${Math.min(popupTop, previewH - 120)}px; left:${elLeft}px; background:#fff; border:1px solid #7c3aed; border-radius:6px; padding:8px; z-index:2000; display:flex; flex-direction:column; gap:6px; box-shadow:0 4px 12px rgba(0,0,0,0.15); min-width:170px;`;
+    popup.style.cssText = `position:absolute; top:${Math.min(popupTop, previewH - 120)}px; left:${elLeft}px; background:var(--panel-bg); border:1px solid var(--accent-color); border-radius:6px; padding:8px; z-index:2000; display:flex; flex-direction:column; gap:6px; box-shadow:0 4px 12px rgba(0,0,0,0.15); min-width:170px;`;
 
     const textInput = document.createElement("input");
     textInput.type = "text";
     textInput.value = currentText;
     textInput.placeholder = "テキスト";
-    textInput.style.cssText = "border:1px solid #cbd5e1; border-radius:3px; padding:3px 6px; font-size:12px; width:100%; outline:none;";
+    textInput.style.cssText = "border:1px solid var(--panel-border); background:var(--input-bg); color:var(--text-primary); border-radius:3px; padding:3px 6px; font-size:12px; width:100%; outline:none;";
     popup.appendChild(textInput);
 
     const sizeRow = document.createElement("div");
@@ -2006,7 +2035,7 @@ function createDateTextElement(text, startX = null, startY = null, fontSizePt = 
     sizeInput.value = currentFontSizePt;
     sizeInput.min = 6;
     sizeInput.max = 72;
-    sizeInput.style.cssText = "border:1px solid #cbd5e1; border-radius:3px; padding:3px 4px; font-size:12px; width:52px; outline:none;";
+    sizeInput.style.cssText = "border:1px solid var(--panel-border); background:var(--input-bg); color:var(--text-primary); border-radius:3px; padding:3px 4px; font-size:12px; width:52px; outline:none;";
     const ptLabel = document.createElement("span");
     ptLabel.textContent = "pt";
     ptLabel.style.cssText = "font-size:11px; color:#64748b;";
@@ -2482,6 +2511,18 @@ window.addEventListener("DOMContentLoaded", async () => {
       e.preventDefault();
       const idx = parseInt(deleteBtn.getAttribute("data-index"));
       loadedPdfFiles.splice(idx, 1);
+      
+      // ビジュアルモードの配置設定データも連動して削除
+      if (visualStampsSettings && visualStampsSettings.length > idx) {
+        visualStampsSettings.splice(idx, 1);
+        visualStampsSettings.forEach((setting, i) => {
+          setting.fileIndex = i;
+        });
+      }
+      if (currentVisualIndex >= loadedPdfFiles.length) {
+        currentVisualIndex = Math.max(0, loadedPdfFiles.length - 1);
+      }
+
       displayFiles();
     }
   });
